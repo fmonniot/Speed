@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.NavDestination
+import eu.monniot.speed.MainDestination
 import eu.monniot.speed.SpeedAppShell
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.SessionSummary
@@ -20,7 +22,7 @@ import eu.monniot.speed.ui.theme.RaceLoggerTheme
 fun PreviewRaceScreenReady() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = null,
+            currentDestination = NavDestination(MainDestination.RACE.route),
             onNavigate = {}
         ) { innerPadding ->
             RaceScreenContent(
@@ -46,7 +48,7 @@ fun PreviewRaceScreenReady() {
 fun PreviewRaceScreenRecording() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = null,
+            currentDestination = NavDestination(MainDestination.RACE.route),
             onNavigate = {}
         ) { innerPadding ->
             RaceScreenContent(
@@ -68,6 +70,21 @@ fun PreviewRaceScreenRecording() {
     }
 }
 
+@Preview(showBackground = true, name = "Settings Screen")
+@Composable
+fun PreviewSettingsScreen() {
+    RaceLoggerTheme {
+        SpeedAppShell(
+            currentDestination = NavDestination(MainDestination.SETTINGS.route),
+            onNavigate = {}
+        ) { innerPadding ->
+            SettingsScreen(
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, name = "Sessions Screen")
 @Composable
 fun PreviewSessionsScreen() {
@@ -78,28 +95,13 @@ fun PreviewSessionsScreen() {
     )
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = null,
+            currentDestination = NavDestination(MainDestination.SESSIONS.route),
             onNavigate = {}
         ) { innerPadding ->
             SessionsScreenContent(
                 sessions = mockSessions,
                 onSessionClick = {},
                 onDelete = {},
-                modifier = Modifier.padding(innerPadding)
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Settings Screen")
-@Composable
-fun PreviewSettingsScreen() {
-    RaceLoggerTheme {
-        SpeedAppShell(
-            currentDestination = null,
-            onNavigate = {}
-        ) { innerPadding ->
-            SettingsScreen(
                 modifier = Modifier.padding(innerPadding)
             )
         }
