@@ -7,8 +7,7 @@ import eu.monniot.speed.sensor.ImuSample
 import eu.monniot.speed.sensor.SatelliteInfo
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.math.*
-
+import kotlin.math.sqrt
 
 class DataFusion(
     private val gpsFlow: SharedFlow<Location>,
@@ -20,10 +19,16 @@ class DataFusion(
     val dataPointFlow: SharedFlow<DataPoint> = _dataPointFlow
 
     var currentSessionId: String? = null
+        set(value) {
+            if (value != field && value != null) {
+                velocityFusion.reset()
+            }
+            field = value
+        }
 
-    private val kalmanFilter = SimpleKalmanFilter(0.1f, 0.5f)
+    private val velocityFusion = VelocityFusion()
     private var lastGpsLocation: Location? = null
-    private var lastDerivedSpeed: Float = 0f
+    private var lastTickTimeNs: Long = 0L
     
     private val imuSamples = mutableListOf<ImuSample>()
 
@@ -39,53 +44,47 @@ class DataFusion(
                 gpsFlow.collect { lastGpsLocation = it }
             }
 
+            lastTickTimeNs = SystemClock.elapsedRealtimeNanos()
+
             // 100ms Loop
             while (isActive) {
-                delay(100)
-                
+                val tickStartNs = SystemClock.elapsedRealtimeNanos()
+                val dt = (tickStartNs - lastTickTimeNs) / 1_000_000_000f
+                lastTickTimeNs = tickStartNs
+
                 val currentImuSamples = synchronized(imuSamples) {
                     val samples = imuSamples.toList()
                     imuSamples.clear()
                     samples
                 }
 
-                val avgAccel = if (currentImuSamples.isNotEmpty()) {
-                    floatArrayOf(
-                        currentImuSamples.map { it.accelWorld[0] }.average().toFloat(),
-                        currentImuSamples.map { it.accelWorld[1] }.average().toFloat(),
-                        currentImuSamples.map { it.accelWorld[2] }.average().toFloat()
-                    )
-                } else floatArrayOf(0f, 0f, 0f)
+                val imuWindow = if (currentImuSamples.isNotEmpty()) {
+                    val ax = currentImuSamples.map { it.accelWorld[0] }.average().toFloat()
+                    val ay = currentImuSamples.map { it.accelWorld[1] }.average().toFloat()
+                    val az = currentImuSamples.map { it.accelWorld[2] }.average().toFloat()
+                    
+                    // Calculate variance for ZUPT
+                    val magnitudes = currentImuSamples.map { s -> 
+                        sqrt(s.accelWorld[0]*s.accelWorld[0] + s.accelWorld[1]*s.accelWorld[1] + s.accelWorld[2]*s.accelWorld[2])
+                    }
+                    val avgMag = magnitudes.average().toFloat()
+                    val variance = magnitudes.map { m -> (m - avgMag) * (m - avgMag) }.average().toFloat()
 
-                val accelMagnitude = sqrt(avgAccel[0] * avgAccel[0] + avgAccel[1] * avgAccel[1] + avgAccel[2] * avgAccel[2])
+                    ImuWindow(ax, ay, az, variance)
+                } else null
 
                 val gps = lastGpsLocation
-                val isGpsFresh = gps != null && (SystemClock.elapsedRealtimeNanos() - gps.elapsedRealtimeNanos) < 300_000_000L
-
-                // FIX: Speed always going up was caused by integrating the absolute magnitude of acceleration.
-                // We now project the 3D acceleration onto the direction of travel (longitudinal axis) 
-                // to get a signed value (positive for acceleration, negative for braking).
-                var longitudinalAccel = 0f
-                if (gps != null && (gps.speed > 0.5f || gps.hasBearing())) {
-                    val bearingRad = gps.bearing * PI.toFloat() / 180f
-                    // In world frame: 0 is East (X), 1 is North (Y). Bearing 0 is North.
-                    // Unit vector for bearing theta: [sin(theta), cos(theta)]
-                    longitudinalAccel = avgAccel[0] * sin(bearingRad) + avgAccel[1] * cos(bearingRad)
-                }
-                
-                // Deadzone to filter out sensor bias and noise when stationary or at constant speed
-                if (abs(longitudinalAccel) < 0.15f) longitudinalAccel = 0f
-
-                // Kalman prediction step using signed acceleration
-                kalmanFilter.predict(0.1f, longitudinalAccel)
-
-                if (isGpsFresh && gps != null) {
-                    kalmanFilter.update(gps.speed)
+                val gpsObs = gps?.let {
+                    val ageMs = (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000L
+                    GpsObservation(
+                        speedMs = it.speed,
+                        bearingRad = it.bearing * Math.PI.toFloat() / 180f,
+                        accuracyM = it.accuracy,
+                        ageMs = ageMs
+                    )
                 }
 
-                val currentDerivedSpeed = kalmanFilter.getSpeed()
-                val derivedAccel = (currentDerivedSpeed - lastDerivedSpeed) / 0.1f
-                lastDerivedSpeed = currentDerivedSpeed
+                val fused = velocityFusion.tick(dt, imuWindow, gpsObs)
 
                 val sats = satellitesFlow.value
                 val dataPoint = DataPoint(
@@ -95,19 +94,22 @@ class DataFusion(
                     latitude = gps?.latitude,
                     longitude = gps?.longitude,
                     altitude = gps?.altitude,
-                    gpsSpeedMs = if (isGpsFresh) gps?.speed else null,
-                    gpsAccuracyM = if (isGpsFresh) gps?.accuracy else null,
+                    gpsSpeedMs = gps?.speed, // Raw GPS speed
+                    gpsAccuracyM = gps?.accuracy,
                     satellitesUsed = sats.usedInFix,
                     satellitesVisible = sats.visible,
-                    accelX = avgAccel[0],
-                    accelY = avgAccel[1],
-                    accelZ = avgAccel[2],
-                    accelMagnitude = accelMagnitude,
-                    derivedSpeedMs = currentDerivedSpeed,
-                    derivedAccelMs2 = derivedAccel
+                    accelX = imuWindow?.accelX ?: 0f,
+                    accelY = imuWindow?.accelY ?: 0f,
+                    accelZ = imuWindow?.accelZ ?: 0f,
+                    accelMagnitude = imuWindow?.let { sqrt(it.accelX*it.accelX + it.accelY*it.accelY + it.accelZ*it.accelZ) } ?: 0f,
+                    derivedSpeedMs = fused.speedMs,
+                    derivedAccelMs2 = fused.derivedAccelMs2 ?: 0f
                 )
 
                 _dataPointFlow.emit(dataPoint)
+
+                val elapsedMs = (SystemClock.elapsedRealtimeNanos() - tickStartNs) / 1_000_000L
+                delay(maxOf(0L, 100L - elapsedMs))
             }
         }
     }
