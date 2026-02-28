@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Not staging raw traces for now. Will revisit
+# once I have a better understanding of their sizes
+app/src/test/resources/raw_traces/*
