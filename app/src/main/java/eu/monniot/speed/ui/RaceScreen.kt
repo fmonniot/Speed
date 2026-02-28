@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -39,6 +40,7 @@ fun RaceScreen(
         sessions = sessions,
         onStart = { viewModel.startRecording() },
         onStop = { viewModel.stopRecording() },
+        onToggleSensors = { viewModel.toggleSensors() },
         onSessionClick = onSessionClick,
         onDeleteSession = { viewModel.deleteSession(it) },
         showPastSessions = showPastSessions
@@ -51,6 +53,7 @@ fun RaceScreenContent(
     sessions: List<SessionSummary> = emptyList(),
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onToggleSensors: () -> Unit,
     onSessionClick: (String) -> Unit = {},
     onDeleteSession: (String) -> Unit = {},
     showPastSessions: Boolean = true,
@@ -64,7 +67,14 @@ fun RaceScreenContent(
     ) {
         RecordingStatusHeader(serviceState)
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SensorToggle(
+            isEnabled = serviceState.isSensorsEnabled,
+            onToggle = onToggleSensors
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
         
         SpeedDisplay(serviceState)
         
@@ -80,6 +90,7 @@ fun RaceScreenContent(
         
         StartStopButton(
             isRecording = serviceState.isRecording,
+            isEnabled = serviceState.isSensorsEnabled,
             onStart = onStart,
             onStop = onStop
         )
@@ -91,6 +102,49 @@ fun RaceScreenContent(
                 sessions = sessions,
                 onSessionClick = onSessionClick,
                 onDelete = onDeleteSession
+            )
+        }
+    }
+}
+
+@Composable
+fun SensorToggle(
+    isEnabled: Boolean,
+    onToggle: () -> Unit
+) {
+    Surface(
+        onClick = onToggle,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isEnabled) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.BatteryAlert,
+                    contentDescription = null,
+                    tint = if (isEnabled) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "High Precision Mode",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (isEnabled) "Active - Draining Battery" else "Inactive",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = { onToggle() }
             )
         }
     }
@@ -154,7 +208,7 @@ fun SpeedDisplay(state: ServiceState) {
             text = "%.1f".format(speedKmh),
             fontSize = 80.sp,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.primary
+            color = if (state.isSensorsEnabled) MaterialTheme.colorScheme.primary else Color.Gray
         )
         Text(
             text = "km/h",
@@ -193,6 +247,7 @@ fun GpsQualityIndicator(state: ServiceState) {
     val accuracy = state.currentAccuracyM
     val sats = state.satellites
     val color = when {
+        !state.isSensorsEnabled -> Color.Gray
         accuracy == null -> Color.Red
         accuracy < 5f -> Color.Green
         accuracy < 15f -> Color.Yellow
@@ -207,7 +262,9 @@ fun GpsQualityIndicator(state: ServiceState) {
                 .background(color)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        val gpsText = if (accuracy == null) {
+        val gpsText = if (!state.isSensorsEnabled) {
+            "GPS: Disabled"
+        } else if (accuracy == null) {
             if (sats.visible > 0) {
                 "GPS: Searching... (${sats.visible} visible)"
             } else {
@@ -226,11 +283,13 @@ fun GpsQualityIndicator(state: ServiceState) {
 @Composable
 fun StartStopButton(
     isRecording: Boolean,
+    isEnabled: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit
 ) {
     Button(
         onClick = { if (isRecording) onStop() else onStart() },
+        enabled = isEnabled || isRecording,
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp),

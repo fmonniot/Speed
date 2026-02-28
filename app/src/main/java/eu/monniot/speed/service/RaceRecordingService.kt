@@ -24,6 +24,7 @@ import java.util.*
 
 data class ServiceState(
     val isRecording: Boolean = false,
+    val isSensorsEnabled: Boolean = false,
     val sessionId: String? = null,
     val latestPoint: DataPoint? = null,
     val pointCount: Int = 0,
@@ -48,6 +49,7 @@ class RaceRecordingService : LifecycleService() {
     
     companion object {
         const val ACTION_START_SENSORS = "ACTION_START_SENSORS"
+        const val ACTION_STOP_SENSORS = "ACTION_STOP_SENSORS"
         const val ACTION_START_RECORDING = "ACTION_START_RECORDING"
         const val ACTION_STOP = "ACTION_STOP"
         const val CHANNEL_ID = "race_recording"
@@ -73,10 +75,6 @@ class RaceRecordingService : LifecycleService() {
             getSystemService(Context.LOCATION_SERVICE) as LocationManager
         )
         imuCollector = ImuCollector(getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager)
-
-        // Sensors stay active for the life of the service
-        gpsCollector.start()
-        imuCollector.start()
 
         dataFusion = DataFusion(
             gpsCollector.locationFlow,
@@ -118,9 +116,7 @@ class RaceRecordingService : LifecycleService() {
     }
 
     override fun onDestroy() {
-        gpsCollector.stop()
-        imuCollector.stop()
-        wakeLock?.let { if (it.isHeld) it.release() }
+        stopSensors()
         super.onDestroy()
     }
 
@@ -134,6 +130,7 @@ class RaceRecordingService : LifecycleService() {
         
         when (intent?.action) {
             ACTION_START_SENSORS -> startSensors()
+            ACTION_STOP_SENSORS -> stopSensors()
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP -> stopRecording()
         }
@@ -142,12 +139,31 @@ class RaceRecordingService : LifecycleService() {
     }
 
     private fun startSensors() {
-        startForeground(NOTIFICATION_ID, createNotification("Ready to record"))
+        gpsCollector.start()
+        imuCollector.start()
+        _state.update { it.copy(isSensorsEnabled = true) }
+        startForeground(NOTIFICATION_ID, createNotification("Sensors active. This will drain your battery."))
+    }
+
+    private fun stopSensors() {
+        if (_state.value.isRecording) {
+            stopRecording()
+        }
+        gpsCollector.stop()
+        imuCollector.stop()
+        _state.update { it.copy(isSensorsEnabled = false) }
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun startRecording() {
         if (_state.value.isRecording) return
         
+        // Ensure sensors are started if they weren't
+        if (!_state.value.isSensorsEnabled) {
+            startSensors()
+        }
+
         val sessionId = UUID.randomUUID().toString()
         val startNs = SystemClock.elapsedRealtimeNanos()
         val startMs = System.currentTimeMillis()
@@ -165,7 +181,7 @@ class RaceRecordingService : LifecycleService() {
         
         dataFusion?.currentSessionId = sessionId
 
-        startForeground(NOTIFICATION_ID, createNotification("Recording..."))
+        startForeground(NOTIFICATION_ID, createNotification("Recording... (Battery drain high)"))
 
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
             newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RaceLogger::Recording").apply {
@@ -200,7 +216,7 @@ class RaceRecordingService : LifecycleService() {
                     elapsedSeconds = 0
                 )
             }
-            startForeground(NOTIFICATION_ID, createNotification("Ready to record"))
+            startForeground(NOTIFICATION_ID, createNotification("Ready to record (Battery drain high)"))
         }
     }
 
@@ -219,7 +235,7 @@ class RaceRecordingService : LifecycleService() {
 
     private fun updateNotification(point: DataPoint) {
         val speedKmh = (point.gpsSpeedMs ?: 0f) * 3.6f
-        val notification = createNotification("Current Speed: %.1f km/h".format(speedKmh))
+        val notification = createNotification("Current Speed: %.1f km/h (Battery draining)".format(speedKmh))
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, notification)
     }

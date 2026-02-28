@@ -36,6 +36,7 @@ fun PreviewRaceScreenReady() {
                 ),
                 onStart = {},
                 onStop = {},
+                onToggleSensors = {},
                 showPastSessions = false,
                 modifier = Modifier.padding(innerPadding)
             )
@@ -63,6 +64,7 @@ fun PreviewRaceScreenRecording() {
                 ),
                 onStart = {},
                 onStop = {},
+                onToggleSensors = {},
                 showPastSessions = false,
                 modifier = Modifier.padding(innerPadding)
             )
