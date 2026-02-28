@@ -10,6 +10,8 @@ Behavioral guidance for AI agents working on this codebase.
 - **Ask before assuming**: If a requirement is ambiguous or a system constraint is unclear, ask the user for clarification instead of guessing.
 - **Respect established patterns**: Follow the existing architecture (e.g., stateless UI content, world-frame fusion, monotonic timing) even if you prefer a different approach.
 - **Safety first**: Never use shell commands like `sed` or `awk` to edit files. Use the provided buffer-safe tools to ensure the IDE stays in sync.
+- **Minimize Scope**: Keep bug fix actions strictly contained to the fix itself. Do not perform unrelated refactoring or "clean up" unless explicitly requested.
+- **Preserve Context**: Do not modify or delete comments that are not directly related to the code you are changing.
 
 ---
 
