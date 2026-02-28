@@ -13,10 +13,6 @@ import eu.monniot.speed.sensor.SatelliteInfo
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
 
-// One common file to preview all screens
-// Useful to get an overview of things while Gemini
-// work in the background.
-
 @Preview(showBackground = true, name = "Race Screen - Ready")
 @Composable
 fun PreviewRaceScreenReady() {
@@ -28,6 +24,7 @@ fun PreviewRaceScreenReady() {
             RaceScreenContent(
                 serviceState = ServiceState(
                     isRecording = false,
+                    isSensorsEnabled = false,
                     currentSpeedMs = 0f,
                     currentAccelMs2 = 0f,
                     currentG = 1.0f,
@@ -55,6 +52,7 @@ fun PreviewRaceScreenRecording() {
             RaceScreenContent(
                 serviceState = ServiceState(
                     isRecording = true,
+                    isSensorsEnabled = true,
                     elapsedSeconds = 125,
                     currentSpeedMs = 15.5f,
                     currentAccelMs2 = 1.2f,
@@ -80,7 +78,9 @@ fun PreviewSettingsScreen() {
             currentDestination = NavDestination(MainDestination.SETTINGS.route),
             onNavigate = {}
         ) { innerPadding ->
-            SettingsScreen(
+            SettingsScreenContent(
+                autoStart = true,
+                onAutoStartChange = {},
                 modifier = Modifier.padding(innerPadding)
             )
         }

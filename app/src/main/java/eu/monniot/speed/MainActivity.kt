@@ -123,7 +123,7 @@ fun SpeedApp(viewModel: RaceViewModel) {
                 )
             }
             composable(MainDestination.SETTINGS.route) {
-                SettingsScreen()
+                SettingsScreen(viewModel = viewModel)
             }
             composable("session_detail/{sessionId}") { backStackEntry ->
                 val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""

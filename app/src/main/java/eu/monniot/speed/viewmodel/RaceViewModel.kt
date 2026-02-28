@@ -8,21 +8,30 @@ import androidx.lifecycle.viewModelScope
 import eu.monniot.speed.data.RaceDatabase
 import eu.monniot.speed.data.RaceRepository
 import eu.monniot.speed.data.SessionSummary
+import eu.monniot.speed.data.SettingsRepository
 import eu.monniot.speed.service.RaceRecordingService
 import eu.monniot.speed.service.ServiceState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import android.content.Intent
+import kotlinx.coroutines.flow.first
 
 class RaceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: RaceRepository
+    private val settingsRepository: SettingsRepository = SettingsRepository(application)
+    
     val serviceState: StateFlow<ServiceState> = RaceRecordingService.state
     val sessions: Flow<List<SessionSummary>>
+    
+    val autoStartSensors: StateFlow<Boolean> = settingsRepository.autoStartSensors
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
@@ -31,6 +40,27 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         val dao = RaceDatabase.getDatabase(application).dataPointDao()
         repository = RaceRepository(dao)
         sessions = repository.sessionSummaries
+        
+        // Auto-start sensors if the setting is enabled
+        viewModelScope.launch {
+            if (settingsRepository.autoStartSensors.first()) {
+                startSensors()
+            }
+        }
+    }
+
+    fun setAutoStartSensors(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoStartSensors(enabled)
+        }
+    }
+
+    private fun startSensors() {
+        val context = getApplication<Application>().applicationContext
+        val intent = Intent(context, RaceRecordingService::class.java).apply {
+            action = RaceRecordingService.ACTION_START_SENSORS
+        }
+        context.startForegroundService(intent)
     }
 
     fun toggleSensors() {
