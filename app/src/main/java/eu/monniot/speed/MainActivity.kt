@@ -9,7 +9,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -20,6 +25,7 @@ import eu.monniot.speed.ui.theme.RaceLoggerTheme
 import eu.monniot.speed.viewmodel.RaceViewModel
 
 class MainActivity : ComponentActivity() {
+    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -50,22 +56,45 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                NavHost(navController = navController, startDestination = "race") {
-                    composable("race") {
-                        RaceScreen(
-                            viewModel = viewModel,
-                            onSessionClick = { sessionId ->
-                                navController.navigate("session_detail/$sessionId")
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { Text("Race Logger") },
+                            actions = {
+                                IconButton(onClick = {
+                                    viewModel.stopRecording()
+                                    finishAndRemoveTask()
+                                }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Close and stop background service"
+                                    )
+                                }
                             }
                         )
                     }
-                    composable("session_detail/{sessionId}") { backStackEntry ->
-                        val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
-                        SessionDetailScreen(
-                            sessionId = sessionId,
-                            viewModel = viewModel,
-                            onBack = { navController.popBackStack() }
-                        )
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = "race",
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable("race") {
+                            RaceScreen(
+                                viewModel = viewModel,
+                                onSessionClick = { sessionId ->
+                                    navController.navigate("session_detail/$sessionId")
+                                }
+                            )
+                        }
+                        composable("session_detail/{sessionId}") { backStackEntry ->
+                            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+                            SessionDetailScreen(
+                                sessionId = sessionId,
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
                     }
                 }
             }
