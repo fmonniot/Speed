@@ -13,6 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+.aiexcluded/
 
 # Not staging raw traces for now. Will revisit
 # once I have a better understanding of their sizes
