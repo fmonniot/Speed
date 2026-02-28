@@ -10,6 +10,15 @@ import java.io.File
 import java.time.LocalDateTime
 import kotlin.math.PI
 
+private data class GpsTickStats(
+    val totalTicks: Int,
+    val freshGpsTicks: Int,
+    val staleGpsTicks: Int,
+    val minAgeMs: Float,
+    val maxAgeMs: Float,
+    val avgAgeMs: Float
+)
+
 class VelocityCalibrationTests {
 
     private val resultsFile =
@@ -106,6 +115,15 @@ class VelocityCalibrationTests {
         resultsFile.appendText("- ZUPT IMU Var: ${VelocityFusion.ZUPT_IMU_VARIANCE_THRESHOLD}\n")
         resultsFile.appendText("- ZUPT GPS Speed: ${VelocityFusion.ZUPT_GPS_SPEED_THRESHOLD_MS} m/s\n")
         resultsFile.appendText("- GPS Max Age: ${VelocityFusion.GPS_MAX_AGE_MS} ms\n\n")
+
+        // 2b. GPS Tick Analysis
+        val gpsStats = analyzeGpsTicks(events)
+        val freshPercent = if (gpsStats.totalTicks > 0) (gpsStats.freshGpsTicks.toFloat() / gpsStats.totalTicks) * 100 else 0f
+        resultsFile.appendText("GPS Tick Analysis:\n")
+        resultsFile.appendText("- Total Ticks: ${gpsStats.totalTicks}\n")
+        resultsFile.appendText("- Ticks with Fresh GPS (<${VelocityFusion.GPS_MAX_AGE_MS}ms): ${gpsStats.freshGpsTicks} ($freshPercent%%)\n")
+        resultsFile.appendText("- Ticks with Stale GPS: ${gpsStats.staleGpsTicks}\n")
+        resultsFile.appendText("- GPS Age (ms): min=${gpsStats.minAgeMs.toInt()}, max=${gpsStats.maxAgeMs.toInt()}, avg=${gpsStats.avgAgeMs.toInt()}\n\n")
 
         // 3. Grid Search Results
         val qValues = listOf(0.01f, 0.05f, 0.1f, 0.5f)
@@ -251,5 +269,49 @@ class VelocityCalibrationTests {
                 tickCount++
             }
         }
+    }
+
+    private fun analyzeGpsTicks(events: List<RawEvent>): GpsTickStats {
+        if (events.isEmpty()) return GpsTickStats(0, 0, 0, 0f, 0f, 0f)
+
+        val firstTs = events.first().timestampNs
+        val tickIntervalNs = 100_000_000L
+        var nextTickNs = firstTs + tickIntervalNs
+
+        var latestGps: RawEvent.Gps? = null
+        var totalTicks = 0
+        var freshGpsTicks = 0
+        var staleGpsTicks = 0
+        val gpsAges = mutableListOf<Float>()
+
+        for (event in events) {
+            when (event) {
+                is RawEvent.Gps -> latestGps = event
+                else -> {}
+            }
+
+            while (event.timestampNs >= nextTickNs) {
+                totalTicks++
+
+                if (latestGps != null) {
+                    val ageMs = (nextTickNs - latestGps.timestampNs) / 1_000_000L.toFloat()
+                    gpsAges.add(ageMs)
+
+                    if (ageMs < VelocityFusion.GPS_MAX_AGE_MS) {
+                        freshGpsTicks++
+                    } else {
+                        staleGpsTicks++
+                    }
+                }
+
+                nextTickNs += tickIntervalNs
+            }
+        }
+
+        val avgAge = if (gpsAges.isNotEmpty()) gpsAges.average().toFloat() else 0f
+        val minAge = gpsAges.minOrNull() ?: 0f
+        val maxAge = gpsAges.maxOrNull() ?: 0f
+
+        return GpsTickStats(totalTicks, freshGpsTicks, staleGpsTicks, minAge, maxAge, avgAge)
     }
 }
