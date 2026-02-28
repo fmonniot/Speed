@@ -11,6 +11,18 @@ import kotlin.math.PI
 
 class VelocityCalibrationTests {
 
+    /**
+     * Calibration test for a phone stationary on a flat surface.
+     * Ground Truth: Speed = 0.0 km/h, ZUPT = 100%.
+     *
+     * NOTE ON STATUS (S) EVENTS:
+     * Current legacy traces have corrupted timestamps for Status events because they were
+     * recorded using System.nanoTime() instead of SystemClock.elapsedRealtimeNanos().
+     * This creates a ~5-day gap in the monotonic timeline which starves the fusion logic.
+     *
+     * We currently filter these out to allow testing of IMU and GPS fusion.
+     * This logic will be removed once new traces are recorded with the fixed FileRawSink.
+     */
     @Test
     fun testStationaryPhone() {
         val traceFileName = "trace_e739b57d-9d4d-40e0-924b-7521027eb77d.csv"
@@ -26,56 +38,49 @@ class VelocityCalibrationTests {
         val resultsFile =
             File("/Users/francoismonniot/Projects/github.com/fmonniot/Speed/app/calibration_results.txt")
 
-        resultsFile.writeText("Calibration Analysis for $traceFileName (Stationary Phone Ground Truth)\n")
-        resultsFile.appendText("Total Events: ${allEvents.size}\n")
+        resultsFile.writeText("=== Calibration Analysis for $traceFileName ===\n\n")
 
-        val imuCount = allEvents.count { it is RawEvent.Imu }
-        val gpsCount = allEvents.count { it is RawEvent.Gps }
-        resultsFile.appendText("IMU Events: $imuCount, GPS Events: $gpsCount\n")
-
-        if (allEvents.isNotEmpty()) {
-            resultsFile.appendText(
-                "Trace Duration: %.2f seconds\n"
-                    .format((allEvents.last().timestampNs - allEvents.first().timestampNs) / 1_000_000_000f)
-            )
-        }
-
-        resultsFile.appendText("\nDetailed Timeline Analysis for $traceFileName\n")
-
+        // 1. Raw Data Stats & Range Analysis
         val imuEvents = allEvents.filterIsInstance<RawEvent.Imu>()
         val gpsEvents = allEvents.filterIsInstance<RawEvent.Gps>()
         val statusEvents = allEvents.filterIsInstance<RawEvent.Status>()
 
+        resultsFile.appendText("Raw Event Statistics:\n")
+        resultsFile.appendText("- Total Events: ${allEvents.size}\n")
+        if (allEvents.isNotEmpty()) {
+            resultsFile.appendText("- Trace Duration (Raw): %.2f seconds\n"
+                .format((allEvents.last().timestampNs - allEvents.first().timestampNs) / 1_000_000_000f))
+        }
         if (imuEvents.isNotEmpty()) {
-            resultsFile.appendText(
-                "IMU Range: ${imuEvents.first().timestampNs} to ${imuEvents.last().timestampNs} (Duration: %.2f s)\n"
-                    .format((imuEvents.last().timestampNs - imuEvents.first().timestampNs) / 1_000_000_000f)
-            )
+            resultsFile.appendText("- IMU Events: ${imuEvents.size} | Range: ${imuEvents.first().timestampNs} to ${imuEvents.last().timestampNs} (%.2f s)\n"
+                .format((imuEvents.last().timestampNs - imuEvents.first().timestampNs) / 1_000_000_000f))
         }
         if (gpsEvents.isNotEmpty()) {
-            resultsFile.appendText(
-                "GPS Range: ${gpsEvents.first().timestampNs} to ${gpsEvents.last().timestampNs} (Duration: %.2f s)\n"
-                    .format((gpsEvents.last().timestampNs - gpsEvents.first().timestampNs) / 1_000_000_000f)
-            )
+            resultsFile.appendText("- GPS Events: ${gpsEvents.size} | Range: ${gpsEvents.first().timestampNs} to ${gpsEvents.last().timestampNs} (%.2f s)\n"
+                .format((gpsEvents.last().timestampNs - gpsEvents.first().timestampNs) / 1_000_000_000f))
         }
         if (statusEvents.isNotEmpty()) {
-            resultsFile.appendText("Status Range: ${statusEvents.first().timestampNs} to ${statusEvents.last().timestampNs}\n")
+            resultsFile.appendText("- Status Events: ${statusEvents.size} | Range: ${statusEvents.first().timestampNs} to ${statusEvents.last().timestampNs}\n")
+            resultsFile.appendText("  (Note: Corrupted timestamps detected in legacy traces for Status events)\n")
         }
 
-        // We filter out anything that doesn't align with the primary sensor (IMU)
+        // Timeline Normalization: We exclude outliers (Status events using wrong clock epoch)
         val baseTs = imuEvents.firstOrNull()?.timestampNs ?: 0L
         val events = allEvents.filter {
-            // Allow events within a reasonable 24-hour window of the IMU data to catch everything
-            // but exclude the massive day-level outliers.
-            Math.abs(it.timestampNs - baseTs) < 3600_000_000_000L
+            it !is RawEvent.Status && Math.abs(it.timestampNs - baseTs) < 3600_000_000_000L
         }.sortedBy { it.timestampNs }
 
-        resultsFile.appendText("\nFinal Filtered Event Count: ${events.size}\n")
-        resultsFile.appendText(
-            "Final Duration: %.2f seconds\n\n"
-                .format((events.last().timestampNs - events.first().timestampNs) / 1_000_000_000f)
-        )
+        resultsFile.appendText("\nFinal Filtered Duration: %.2f seconds\n\n"
+            .format((events.last().timestampNs - events.first().timestampNs) / 1_000_000_000f))
 
+        // 2. Threshold Context
+        resultsFile.appendText("Active Thresholds (from VelocityFusion):\n")
+        resultsFile.appendText("- ZUPT IMU Mag: ${VelocityFusion.ZUPT_IMU_MAGNITUDE_THRESHOLD} m/s²\n")
+        resultsFile.appendText("- ZUPT IMU Var: ${VelocityFusion.ZUPT_IMU_VARIANCE_THRESHOLD}\n")
+        resultsFile.appendText("- ZUPT GPS Speed: ${VelocityFusion.ZUPT_GPS_SPEED_THRESHOLD_MS} m/s\n")
+        resultsFile.appendText("- GPS Max Age: ${VelocityFusion.GPS_MAX_AGE_MS} ms\n\n")
+
+        // 3. Grid Search Results
         val qValues = listOf(0.01f, 0.05f, 0.1f, 0.5f)
         val rValues = listOf(0.1f, 0.3f, 0.5f, 1.0f)
 
@@ -100,7 +105,7 @@ class VelocityCalibrationTests {
             }
         }
 
-        resultsFile.appendText("\n--- ZUPT Diagnostic (First 20 ticks) ---\n")
+        resultsFile.appendText("\n--- ZUPT Diagnostic (First 20 valid ticks) for Default Config ---\n")
         runDiagnostic(events, VelocityFusion(0.5f, 0.3f), resultsFile)
     }
 
