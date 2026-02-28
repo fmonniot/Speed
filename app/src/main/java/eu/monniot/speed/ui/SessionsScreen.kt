@@ -73,7 +73,7 @@ fun PastSessionsList(
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
+            .fillMaxHeight()
     ) {
         items(sessions) { session ->
             SessionItem(session, onSessionClick, onDelete)
