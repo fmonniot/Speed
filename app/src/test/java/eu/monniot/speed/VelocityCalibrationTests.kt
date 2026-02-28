@@ -7,6 +7,7 @@ import eu.monniot.speed.fusion.VelocityFusion
 import eu.monniot.speed.sensor.ImuSample
 import org.junit.Test
 import java.io.File
+import java.time.LocalDateTime
 import kotlin.math.PI
 
 class VelocityCalibrationTests {
@@ -55,6 +56,7 @@ class VelocityCalibrationTests {
         resultsFile.writeText("=".repeat(80) + "\n")
         resultsFile.appendText("CALIBRATION ANALYSIS: $description\n")
         resultsFile.appendText("Trace File: $traceFileName\n")
+        resultsFile.appendText("Generated at: ${LocalDateTime.now()}\n")
         resultsFile.appendText("=".repeat(80) + "\n\n")
 
         // 1. Raw Data Stats & Timeline Analysis
@@ -124,7 +126,7 @@ class VelocityCalibrationTests {
                     .toFloat() / results.size) * 100f else 0f
 
                 resultsFile.appendText(
-                    "| %.2f | %.2f |     %.6f     |     %.6f     |  %.1f%%  |\n"
+                    "| %.2f | %.2f |     %09.6f     |     %09.6f     |  %.1f%%  |\n"
                         .format(q, r, maxSpeedKmh, avgSpeedKmh, zuptPercent)
                 )
             }
