@@ -22,6 +22,14 @@ class VelocityCalibrationTests {
         )
     }
 
+    @Test
+    fun testAverageCityTraffic() {
+        runCalibration(
+            traceFileName = "trace_e63f49da-2266-41c3-96e6-40f037319150.csv",
+            description = "Average non-congested city traffic (Home to SF Zoo)."
+        )
+    }
+
     /**
      * Calibration logic for a given trace.
      *
@@ -43,7 +51,8 @@ class VelocityCalibrationTests {
             return
         }
 
-        resultsFile.appendText("\n" + "=".repeat(80) + "\n")
+        // This reset the results file for each run
+        resultsFile.writeText("=".repeat(80) + "\n")
         resultsFile.appendText("CALIBRATION ANALYSIS: $description\n")
         resultsFile.appendText("Trace File: $traceFileName\n")
         resultsFile.appendText("=".repeat(80) + "\n\n")
