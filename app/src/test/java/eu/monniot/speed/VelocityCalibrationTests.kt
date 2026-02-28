@@ -10,10 +10,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
 
-class VelocityFusionTest {
+class VelocityCalibrationTests {
 
+    /**
+     * This test run against raw traces where the phone was sitting on a desktop. It wasn't
+     * moving to the best of my ability (e.g. may have some acceleration when interacting
+     * with the side button).
+     */
     @Test
-    fun testReplayTrace() {
+    fun testStationaryPhone() {
         val traceFileName = "trace_e739b57d-9d4d-40e0-924b-7521027eb77d.csv"
         val events = SensorReplayer
             .fromRawTraceResource("src/test/resources/raw_traces/$traceFileName")
