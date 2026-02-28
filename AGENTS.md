@@ -73,6 +73,7 @@ The app uses a modern Compose-based UI with a Navigation Suite (Bottom Bar / Rai
 
 - **Stateless Content**: Compose screens must be split into a stateful wrapper (handling ViewModels) and a stateless `Content` composable (taking raw data and lambdas).
 - **Previews**: All main screens are previewable in `Previews.kt`. They should be wrapped in `SpeedAppShell` to visualize the navigation context.
+- **MANDATORY**: You must check and update the corresponding `@Preview` in `ScreenPreviews.kt` after any UI change. Always use the `render_compose_preview` tool to verify the visual result.
 - **Theme**: Use `RaceLoggerTheme` for all previews to ensure correct color schemes.
 
 ---
@@ -97,4 +98,4 @@ The app uses a modern Compose-based UI with a Navigation Suite (Bottom Bar / Rai
 
 - **Before changing a threshold** (ZUPT, GPS age, Kalman Q/R): Read the detailed comments in `VelocitiFusion.kt` explaining why those values were chosen.
 - **Before adding a sensor**: Ensure its coordinate frame is handled correctly (device vs. world).
-- **UI Changes**: Verify that the changes don't break the `Previews.kt` visual tests.
+- **UI Changes**: Verify that the changes don't break the `Previews.kt` visual tests. Always run `render_compose_preview` to see the actual UI.
