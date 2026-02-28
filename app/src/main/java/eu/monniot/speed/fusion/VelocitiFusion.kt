@@ -287,7 +287,7 @@ class SimpleKalmanFilter(private val q: Float, private val r: Float) {
  *                 Increase if you observe the speed output being jittery on straights.
  */
 class VelocityFusion(
-    kalmanQ: Float = 0.5f,
+    kalmanQ: Float = 0.3f,
     kalmanR: Float = 0.3f
 ) {
     // Two independent 1D filters — one per horizontal world-frame axis.
@@ -319,9 +319,9 @@ class VelocityFusion(
         // ZUPT thresholds — both IMU and GPS must agree before we declare a stop.
         // Requiring both prevents false stops on: slow GPS drift, sensor glitches,
         // brief decelerations, and momentary GPS outages.
-        const val ZUPT_GPS_SPEED_THRESHOLD_MS  = 0.3f   // ~1 km/h
-        const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.25f  // m/s² average. Tightened slightly based on stationary tests
-        const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.015f // low variance = stable/still. Tightened slightly based on stationary tests
+        const val ZUPT_GPS_SPEED_THRESHOLD_MS  = 0.5f   // ~1.8 km/h. Increased to avoid ZUPT blocking while parked.
+        const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.4f   // m/s² average. Increased to provide more stickiness at zero on bumpy roads.
+        const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.015f // low variance = stable/still. Tuned based on stationary tests.
         const val ZUPT_MEASUREMENT_NOISE       = 0.01f  // very confident: velocity = 0
     }
 
@@ -374,16 +374,25 @@ class VelocityFusion(
             val freshGps = gps?.takeIf { fix ->
                 fix.ageMs < GPS_MAX_AGE_MS
                         && fix.accuracyM < GPS_MIN_ACCURACY_M
-                        && fix.speedMs > GPS_MIN_SPEED_FOR_BEARING_MS
             }
 
             if (freshGps != null) {
                 // Decompose GPS speed + bearing into North/East velocity components.
-                // This is why Option B beats Option A: GPS speed at near-zero is ~0 regardless
-                // of bearing, so low-speed GPS corrections are still correct even if bearing
-                // is noisy. We only skip bearing-based decomposition below the threshold above.
-                val vNorth = freshGps.speedMs * kotlin.math.cos(freshGps.bearingRad)
-                val vEast  = freshGps.speedMs * kotlin.math.sin(freshGps.bearingRad)
+                // At low speeds (< 0.5 m/s), bearing is unreliable due to phone heading noise.
+                // Instead of decomposing, we inject the raw speed as a scalar — the filter will
+                // distribute it across axes based on current uncertainty.
+                val vNorth: Float
+                val vEast: Float
+                if (freshGps.speedMs >= GPS_MIN_SPEED_FOR_BEARING_MS) {
+                    // High enough speed — bearing is trustworthy, decompose into components
+                    vNorth = freshGps.speedMs * kotlin.math.cos(freshGps.bearingRad)
+                    vEast = freshGps.speedMs * kotlin.math.sin(freshGps.bearingRad)
+                } else {
+                    // Low speed — bearing unreliable. Inject as magnitude, let filter decide distribution.
+                    // The Kalman filter will handle this as a scalar correction.
+                    vNorth = freshGps.speedMs
+                    vEast = 0f
+                }
 
                 kalmanNorth.update(vNorth)
                 kalmanEast.update(vEast)
