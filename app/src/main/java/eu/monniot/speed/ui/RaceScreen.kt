@@ -28,11 +28,33 @@ import kotlin.math.abs
 @Composable
 fun RaceScreen(
     viewModel: RaceViewModel,
-    onSessionClick: (String) -> Unit
+    onSessionClick: (String) -> Unit = {},
+    showPastSessions: Boolean = true
 ) {
     val serviceState by viewModel.serviceState.collectAsState()
     val sessions by viewModel.sessions.collectAsState(initial = emptyList())
 
+    RaceScreenContent(
+        serviceState = serviceState,
+        sessions = sessions,
+        onStart = { viewModel.startRecording() },
+        onStop = { viewModel.stopRecording() },
+        onSessionClick = onSessionClick,
+        onDeleteSession = { viewModel.deleteSession(it) },
+        showPastSessions = showPastSessions
+    )
+}
+
+@Composable
+fun RaceScreenContent(
+    serviceState: ServiceState,
+    sessions: List<SessionSummary> = emptyList(),
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onSessionClick: (String) -> Unit = {},
+    onDeleteSession: (String) -> Unit = {},
+    showPastSessions: Boolean = true
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -57,17 +79,19 @@ fun RaceScreen(
         
         StartStopButton(
             isRecording = serviceState.isRecording,
-            onStart = { viewModel.startRecording() },
-            onStop = { viewModel.stopRecording() }
+            onStart = onStart,
+            onStop = onStop
         )
         
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        PastSessionsList(
-            sessions = sessions,
-            onSessionClick = onSessionClick,
-            onDelete = { viewModel.deleteSession(it) }
-        )
+        if (showPastSessions) {
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            PastSessionsList(
+                sessions = sessions,
+                onSessionClick = onSessionClick,
+                onDelete = onDeleteSession
+            )
+        }
     }
 }
 

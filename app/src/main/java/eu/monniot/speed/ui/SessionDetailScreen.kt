@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.viewmodel.RaceViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionDetailScreen(
     sessionId: String,
@@ -29,6 +28,25 @@ fun SessionDetailScreen(
         points = viewModel.getPointsForSession(sessionId)
     }
 
+    SessionDetailContent(
+        points = points,
+        onBack = onBack,
+        onExport = { viewModel.exportSession(sessionId) },
+        onDelete = {
+            viewModel.deleteSession(sessionId)
+            onBack()
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SessionDetailContent(
+    points: List<DataPoint>,
+    onBack: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -39,13 +57,10 @@ fun SessionDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.exportSession(sessionId) }) {
+                    IconButton(onClick = onExport) {
                         Icon(Icons.Default.Share, contentDescription = "Export CSV")
                     }
-                    IconButton(onClick = { 
-                        viewModel.deleteSession(sessionId)
-                        onBack()
-                    }) {
+                    IconButton(onClick = onDelete) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 }

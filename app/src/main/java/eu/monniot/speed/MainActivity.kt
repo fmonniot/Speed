@@ -12,26 +12,34 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.core.view.WindowCompat
 import eu.monniot.speed.ui.RaceScreen
 import eu.monniot.speed.ui.SessionDetailScreen
+import eu.monniot.speed.ui.SessionsScreen
+import eu.monniot.speed.ui.SettingsScreen
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
 import eu.monniot.speed.viewmodel.RaceViewModel
 
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Ensure the app content is laid out behind the system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
         setContent {
@@ -41,9 +49,7 @@ class MainActivity : ComponentActivity() {
 
                 val permissionsLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissions ->
-                    // Handle permissions result
-                }
+                ) { _ -> }
 
                 LaunchedEffect(Unit) {
                     val permissions = mutableListOf(
@@ -62,46 +68,56 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("Race Logger") },
-                            actions = {
-                                IconButton(onClick = {
-                                    viewModel.stopRecording()
-                                    finishAndRemoveTask()
-                                }) {
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentDestination = navBackStackEntry?.destination
+
+                NavigationSuiteScaffold(
+                    navigationSuiteItems = {
+                        MainDestination.entries.forEach { destination ->
+                            item(
+                                icon = {
                                     Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Close and stop background service"
+                                        destination.icon,
+                                        contentDescription = destination.label
                                     )
+                                },
+                                label = { Text(destination.label) },
+                                selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
+                                onClick = {
+                                    navController.navigate(destination.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                                actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                             )
-                        )
+                        }
                     }
-                ) { innerPadding ->
-                    Surface(
-                        modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
+                ) {
+                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         NavHost(
                             navController = navController,
-                            startDestination = "race",
-                            modifier = Modifier.fillMaxSize()
+                            startDestination = MainDestination.RACE.route,
+                            modifier = Modifier.padding(innerPadding)
                         ) {
-                            composable("race") {
+                            composable(MainDestination.RACE.route) {
                                 RaceScreen(
+                                    viewModel = viewModel,
+                                    showPastSessions = false
+                                )
+                            }
+                            composable(MainDestination.SESSIONS.route) {
+                                SessionsScreen(
                                     viewModel = viewModel,
                                     onSessionClick = { sessionId ->
                                         navController.navigate("session_detail/$sessionId")
                                     }
                                 )
+                            }
+                            composable(MainDestination.SETTINGS.route) {
+                                SettingsScreen()
                             }
                             composable("session_detail/{sessionId}") { backStackEntry ->
                                 val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
@@ -126,4 +142,14 @@ class MainActivity : ComponentActivity() {
         }
         startActivity(Intent.createChooser(intent, "Share Race Session CSV"))
     }
+}
+
+enum class MainDestination(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+) {
+    RACE("race", "Race", Icons.Default.Speed),
+    SESSIONS("sessions", "Sessions", Icons.Default.History),
+    SETTINGS("settings", "Settings", Icons.Default.Settings)
 }
