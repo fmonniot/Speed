@@ -2,6 +2,7 @@ package eu.monniot.speed.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavDestination
@@ -13,12 +14,19 @@ import eu.monniot.speed.sensor.SatelliteInfo
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
 
+@Composable
+private fun mockDestination(route: String): NavDestination = remember(route) {
+    NavDestination("mock").apply {
+        this.route = route
+    }
+}
+
 @Preview(showBackground = true, name = "Race Screen - Ready")
 @Composable
 fun PreviewRaceScreenReady() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = NavDestination(MainDestination.RACE.route),
+            currentDestination = mockDestination(MainDestination.RACE.route),
             onNavigate = {}
         ) { innerPadding ->
             RaceScreenContent(
@@ -46,7 +54,7 @@ fun PreviewRaceScreenReady() {
 fun PreviewRaceScreenRecording() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = NavDestination(MainDestination.RACE.route),
+            currentDestination = mockDestination(MainDestination.RACE.route),
             onNavigate = {}
         ) { innerPadding ->
             RaceScreenContent(
@@ -75,7 +83,7 @@ fun PreviewRaceScreenRecording() {
 fun PreviewSettingsScreen() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = NavDestination(MainDestination.SETTINGS.route),
+            currentDestination = mockDestination(MainDestination.SETTINGS.route),
             onNavigate = {}
         ) { innerPadding ->
             SettingsScreenContent(
@@ -97,7 +105,7 @@ fun PreviewSessionsScreen() {
     )
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = NavDestination(MainDestination.SESSIONS.route),
+            currentDestination = mockDestination(MainDestination.SESSIONS.route),
             onNavigate = {}
         ) { innerPadding ->
             SessionsScreenContent(
@@ -135,6 +143,8 @@ fun PreviewSessionDetailScreen() {
         )
     }
     RaceLoggerTheme {
+        // We do not wrap Detail screen in SpeedAppShell because the detail screen 
+        // handles its own Scaffold and TopAppBar, hiding the navigation bar in reality.
         SessionDetailContent(
             points = mockPoints,
             onBack = {},
