@@ -15,6 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.viewmodel.RaceViewModel
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun SessionsScreen(
@@ -85,6 +88,48 @@ fun SessionItem(
     onSessionClick: (String) -> Unit,
     onDelete: (String) -> Unit
 ) {
+    val dateDisplay = remember(session.startTimeMs, session.endTimeMs) {
+        val startCal = Calendar.getInstance().apply { timeInMillis = session.startTimeMs }
+        val endCal = session.endTimeMs?.let { endTime ->
+            Calendar.getInstance().apply { timeInMillis = endTime }
+        }
+
+        val dayFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+        val startDateStr = dayFormat.format(startCal.time)
+        val startTimeStr = timeFormat.format(startCal.time)
+
+        if (endCal == null) {
+            "$startDateStr • $startTimeStr"
+        } else {
+            val isSameDay = startCal.get(Calendar.YEAR) == endCal.get(Calendar.YEAR) &&
+                    startCal.get(Calendar.DAY_OF_YEAR) == endCal.get(Calendar.DAY_OF_YEAR)
+
+            val endTimeStr = timeFormat.format(endCal.time)
+
+            if (isSameDay) {
+                "$startDateStr • $startTimeStr - $endTimeStr"
+            } else {
+                val endDateStr = dayFormat.format(endCal.time)
+                "$startDateStr $startTimeStr - $endDateStr $endTimeStr"
+            }
+        }
+    }
+
+    val durationDisplay = remember(session.startTimeMs, session.endTimeMs) {
+        session.endTimeMs?.let { endTime ->
+            val duration = (endTime - session.startTimeMs).milliseconds
+            duration.toComponents { hours, minutes, seconds, _ ->
+                if (hours > 0) {
+                    "%dh %02dm %02ds".format(hours, minutes, seconds)
+                } else {
+                    "%02dm %02ds".format(minutes, seconds)
+                }
+            }
+        } ?: "Ongoing"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -99,12 +144,29 @@ fun SessionItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Session ${session.sessionId.take(6)}",
-                    fontWeight = FontWeight.Bold
+                    text = dateDisplay,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge
                 )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 2.dp)
+                ) {
+                    Text(
+                        text = "Max: %.1f km/h".format((session.maxSpeedMs ?: 0f) * 3.6f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Duration: $durationDisplay",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
-                    text = "Max: %.1f km/h".format((session.maxSpeedMs ?: 0f) * 3.6f),
-                    style = MaterialTheme.typography.bodySmall
+                    text = "ID: ${session.sessionId}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(top = 2.dp)
                 )
             }
             IconButton(onClick = { onDelete(session.sessionId) }) {
