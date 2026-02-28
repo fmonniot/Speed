@@ -22,6 +22,27 @@ A production-quality Android application for recording race data (speed, acceler
 - **Database:** Room
 - **Build System:** Gradle Kotlin DSL
 
+## Data Extraction & Debugging
+
+### 1. Standard Export (Recommended)
+Use the **"Export"** button in the **Sessions** screen. 
+- If "Record Raw Traces" is **OFF**: Exports a single `.csv` file containing processed/aggregated data.
+- If "Record Raw Traces" is **ON**: Exports a `.zip` file containing both `processed_data.csv` and `raw_trace.csv` (100Hz IMU samples).
+
+### 2. Manual Extraction via Android Studio
+If you cannot use the UI share sheet, you can pull files directly from the device:
+
+#### Raw Traces (Permanent until session deleted)
+- **Path**: `/sdcard/Android/data/eu.monniot.speed/files/raw_traces/`
+- **Method**: Use **Device File Explorer** in Android Studio or `adb pull`:
+  ```bash
+  adb pull /sdcard/Android/data/eu.monniot.speed/files/raw_traces/ .
+  ```
+
+#### Temporary Export Cache
+- **Path**: `/data/data/eu.monniot.speed/cache/`
+- **Note**: Requires a Debug build to view in Device File Explorer on non-rooted physical devices.
+
 ## Setup Instructions
 
 1. **Clone/Copy Files:** Ensure all files are placed in their respective paths as generated.
@@ -39,9 +60,9 @@ A production-quality Android application for recording race data (speed, acceler
 - **Battery Optimization:** Uses a `WakeLock` during recording to ensure consistent timing while allowing the screen to turn off.
 - **Thread Safety:** Data fusion runs on `Dispatchers.Default`, while database operations use `Dispatchers.IO`.
 
-## Exported CSV Format
+## Exported CSV Format (Processed)
 
-The exported CSV contains the following columns:
+The processed CSV contains:
 - `elapsed_ms`: Time since the start of the session.
 - `wall_clock_iso`: ISO-8601 formatted system time.
 - `lat`, `lon`, `altitude_m`: GPS coordinates and altitude.
