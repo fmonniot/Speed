@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.core.view.WindowCompat
 import eu.monniot.speed.ui.RaceScreen
 import eu.monniot.speed.ui.SessionDetailScreen
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -28,6 +29,10 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Ensure the app content is laid out behind the system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        
         setContent {
             RaceLoggerTheme {
                 val navController = rememberNavController()
@@ -70,30 +75,38 @@ class MainActivity : ComponentActivity() {
                                         contentDescription = "Close and stop background service"
                                     )
                                 }
-                            }
+                            },
+                            // Optional: make the top bar slightly transparent or match background
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
                         )
                     }
                 ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = "race",
-                        modifier = Modifier.padding(innerPadding)
+                    Surface(
+                        modifier = Modifier.padding(innerPadding),
+                        color = MaterialTheme.colorScheme.background
                     ) {
-                        composable("race") {
-                            RaceScreen(
-                                viewModel = viewModel,
-                                onSessionClick = { sessionId ->
-                                    navController.navigate("session_detail/$sessionId")
-                                }
-                            )
-                        }
-                        composable("session_detail/{sessionId}") { backStackEntry ->
-                            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
-                            SessionDetailScreen(
-                                sessionId = sessionId,
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
+                        NavHost(
+                            navController = navController,
+                            startDestination = "race"
+                        ) {
+                            composable("race") {
+                                RaceScreen(
+                                    viewModel = viewModel,
+                                    onSessionClick = { sessionId ->
+                                        navController.navigate("session_detail/$sessionId")
+                                    }
+                                )
+                            }
+                            composable("session_detail/{sessionId}") { backStackEntry ->
+                                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+                                SessionDetailScreen(
+                                    sessionId = sessionId,
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
                         }
                     }
                 }
