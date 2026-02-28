@@ -13,9 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import eu.monniot.speed.MainActivity
 import eu.monniot.speed.data.*
 import eu.monniot.speed.fusion.DataFusion
-import eu.monniot.speed.sensor.GpsCollector
-import eu.monniot.speed.sensor.ImuCollector
-import eu.monniot.speed.sensor.SatelliteInfo
+import eu.monniot.speed.sensor.*
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -47,9 +45,11 @@ data class ServiceState(
 class RaceRecordingService : LifecycleService() {
 
     private lateinit var repository: RaceRepository
+    private lateinit var settingsRepository: SettingsRepository
     private lateinit var gpsCollector: GpsCollector
     private lateinit var imuCollector: ImuCollector
     private var dataFusion: DataFusion? = null
+    private var rawSink: RawSensorSink? = null
     
     private var wakeLock: PowerManager.WakeLock? = null
 
@@ -84,12 +84,20 @@ class RaceRecordingService : LifecycleService() {
         super.onCreate()
         val dao = RaceDatabase.getDatabase(this).dataPointDao()
         repository = RaceRepository(dao)
+        settingsRepository = SettingsRepository(this)
         
+        // Initialize Raw Sink
+        rawSink = FileRawSink(this)
+
         gpsCollector = GpsCollector(
             LocationServices.getFusedLocationProviderClient(this),
-            getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            getSystemService(Context.LOCATION_SERVICE) as LocationManager,
+            rawSink
         )
-        imuCollector = ImuCollector(getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager)
+        imuCollector = ImuCollector(
+            getSystemService(Context.SENSOR_SERVICE) as android.hardware.SensorManager,
+            rawSink
+        )
 
         dataFusion = DataFusion(
             gpsCollector.locationFlow,
@@ -250,6 +258,13 @@ class RaceRecordingService : LifecycleService() {
         
         dataFusion?.currentSessionId = sessionId
 
+        // Start raw logging if enabled in settings
+        lifecycleScope.launch {
+            if (settingsRepository.recordRawTraces.first()) {
+                rawSink?.start(sessionId)
+            }
+        }
+
         startForeground(NOTIFICATION_ID, createNotification("Recording... (Battery drain high)"))
 
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
@@ -268,6 +283,8 @@ class RaceRecordingService : LifecycleService() {
 
         dataFusion?.currentSessionId = null
         wakeLock?.let { if (it.isHeld) it.release() }
+        
+        rawSink?.stop()
 
         val currentState = _state.value
         lifecycleScope.launch {

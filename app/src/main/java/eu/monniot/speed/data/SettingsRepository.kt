@@ -15,6 +15,7 @@ class SettingsRepository(private val context: Context) {
 
     companion object {
         val AUTO_START_SENSORS = booleanPreferencesKey("auto_start_sensors")
+        val RECORD_RAW_TRACES = booleanPreferencesKey("record_raw_traces")
     }
 
     val autoStartSensors: Flow<Boolean> = context.dataStore.data
@@ -22,9 +23,20 @@ class SettingsRepository(private val context: Context) {
             preferences[AUTO_START_SENSORS] ?: false
         }
 
+    val recordRawTraces: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[RECORD_RAW_TRACES] ?: false
+        }
+
     suspend fun setAutoStartSensors(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_START_SENSORS] = enabled
+        }
+    }
+
+    suspend fun setRecordRawTraces(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[RECORD_RAW_TRACES] = enabled
         }
     }
 }

@@ -13,7 +13,10 @@ data class ImuSample(
     val timestampNs: Long
 )
 
-class ImuCollector(private val sensorManager: SensorManager) : SensorEventListener {
+class ImuCollector(
+    private val sensorManager: SensorManager,
+    private val rawSink: RawSensorSink? = null
+) : SensorEventListener {
 
     private val _imuFlow = MutableSharedFlow<ImuSample>(
         replay = 0,
@@ -58,6 +61,9 @@ class ImuCollector(private val sensorManager: SensorManager) : SensorEventListen
                     worldAccel[2] = rotationMatrix[6] * event.values[0] + rotationMatrix[7] * event.values[1] + rotationMatrix[8] * event.values[2]
                     
                     _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp))
+                    
+                    // Pipe raw data to sink if available
+                    rawSink?.onImuEvent(event.values.clone(), lastRotationVector!!, event.timestamp)
                 }
             }
         }

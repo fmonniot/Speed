@@ -18,7 +18,8 @@ data class SatelliteInfo(
 
 class GpsCollector(
     private val client: FusedLocationProviderClient,
-    private val locationManager: LocationManager
+    private val locationManager: LocationManager,
+    private val rawSink: RawSensorSink? = null
 ) {
 
     private val _locationFlow = MutableSharedFlow<Location>(extraBufferCapacity = 16)
@@ -34,6 +35,7 @@ class GpsCollector(
         override fun onLocationResult(result: LocationResult) {
             result.lastLocation?.let {
                 _locationFlow.tryEmit(it)
+                rawSink?.onLocationEvent(it)
             }
         }
     }
@@ -48,6 +50,7 @@ class GpsCollector(
                 }
             }
             _satellitesFlow.value = SatelliteInfo(used, visible)
+            rawSink?.onGnssStatusEvent(used, visible)
         }
     }
 
