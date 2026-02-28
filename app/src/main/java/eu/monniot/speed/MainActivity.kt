@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -62,6 +63,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Scaffold(
+                    modifier = Modifier.fillMaxSize(),
                     topBar = {
                         TopAppBar(
                             title = { Text("Race Logger") },
@@ -76,20 +78,22 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             },
-                            // Optional: make the top bar slightly transparent or match background
                             colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                                actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         )
                     }
                 ) { innerPadding ->
                     Surface(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = Modifier.padding(top = innerPadding.calculateTopPadding()),
                         color = MaterialTheme.colorScheme.background
                     ) {
                         NavHost(
                             navController = navController,
-                            startDestination = "race"
+                            startDestination = "race",
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             composable("race") {
                                 RaceScreen(
