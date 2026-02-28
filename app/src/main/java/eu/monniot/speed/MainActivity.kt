@@ -41,13 +41,13 @@ import eu.monniot.speed.viewmodel.RaceViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        
+
         setContent {
             RaceLoggerTheme {
                 val viewModel: RaceViewModel = viewModel()
-                
+
                 LaunchedEffect(viewModel.exportUri) {
                     viewModel.exportUri.collect { uri ->
                         shareFile(uri)
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun SpeedApp(viewModel: RaceViewModel) {
     val navController = rememberNavController()
-    
+
     val permissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ -> }
@@ -102,11 +102,11 @@ fun SpeedApp(viewModel: RaceViewModel) {
                 restoreState = true
             }
         }
-    ) { innerPadding ->
+    ) {
         NavHost(
             navController = navController,
             startDestination = MainDestination.RACE.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.fillMaxSize()
         ) {
             composable(MainDestination.RACE.route) {
                 RaceScreen(
@@ -140,7 +140,7 @@ fun SpeedApp(viewModel: RaceViewModel) {
 fun SpeedAppShell(
     currentDestination: NavDestination?,
     onNavigate: (MainDestination) -> Unit,
-    content: @Composable (PaddingValues) -> Unit
+    content: @Composable () -> Unit
 ) {
     NavigationSuiteScaffold(
         navigationSuiteItems = {
@@ -159,9 +159,7 @@ fun SpeedAppShell(
             }
         }
     ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            content(innerPadding)
-        }
+        content()
     }
 }
 

@@ -21,14 +21,14 @@ private fun mockDestination(route: String): NavDestination = remember(route) {
     }
 }
 
-@Preview(showBackground = true, name = "Race Screen - Ready")
+@Preview(showBackground = true, showSystemUi = true, name = "Race Screen - Ready")
 @Composable
 fun PreviewRaceScreenReady() {
     RaceLoggerTheme {
         SpeedAppShell(
             currentDestination = mockDestination(MainDestination.RACE.route),
             onNavigate = {}
-        ) { innerPadding ->
+        ) {
             RaceScreenContent(
                 serviceState = ServiceState(
                     isRecording = false,
@@ -41,21 +41,20 @@ fun PreviewRaceScreenReady() {
                 ),
                 onStart = {},
                 onStop = {},
-                onToggleSensors = {},
-                modifier = Modifier.padding(innerPadding)
+                onToggleSensors = {}
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Race Screen - Recording")
+@Preview(showBackground = true, showSystemUi = true, name = "Race Screen - Recording")
 @Composable
 fun PreviewRaceScreenRecording() {
     RaceLoggerTheme {
         SpeedAppShell(
             currentDestination = mockDestination(MainDestination.RACE.route),
             onNavigate = {}
-        ) { innerPadding ->
+        ) {
             RaceScreenContent(
                 serviceState = ServiceState(
                     isRecording = true,
@@ -69,34 +68,32 @@ fun PreviewRaceScreenRecording() {
                 ),
                 onStart = {},
                 onStop = {},
-                onToggleSensors = {},
-                modifier = Modifier.padding(innerPadding)
+                onToggleSensors = {}
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Settings Screen")
+@Preview(showBackground = true, showSystemUi = true, name = "Settings Screen")
 @Composable
 fun PreviewSettingsScreen() {
     RaceLoggerTheme {
         SpeedAppShell(
             currentDestination = mockDestination(MainDestination.SETTINGS.route),
             onNavigate = {}
-        ) { innerPadding ->
+        ) {
             SettingsScreenContent(
                 autoStart = true,
                 onAutoStartChange = {},
                 batteryWattage = -0.52f,
                 batteryCapacityMah = 4500,
-                batteryTimeRemainingMs = 12600000L,
-                modifier = Modifier.padding(innerPadding)
+                batteryTimeRemainingMs = 12600000L
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Sessions Screen")
+@Preview(showBackground = true, showSystemUi = true, name = "Sessions Screen")
 @Composable
 fun PreviewSessionsScreen() {
     val mockSessions = listOf(
@@ -108,18 +105,17 @@ fun PreviewSessionsScreen() {
         SpeedAppShell(
             currentDestination = mockDestination(MainDestination.SESSIONS.route),
             onNavigate = {}
-        ) { innerPadding ->
+        ) {
             SessionsScreenContent(
                 sessions = mockSessions,
                 onSessionClick = {},
-                onDelete = {},
-                modifier = Modifier.padding(innerPadding)
+                onDelete = {}
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Session Detail Screen")
+@Preview(showBackground = true, showSystemUi = true, name = "Session Detail Screen")
 @Composable
 fun PreviewSessionDetailScreen() {
     val mockPoints = List(20) { i ->
