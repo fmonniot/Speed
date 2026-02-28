@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.viewmodel.RaceViewModel
+import kotlin.math.abs
 
 @Composable
 fun RaceScreen(
@@ -144,8 +145,12 @@ fun MetricsDisplay(state: ServiceState) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        MetricItem(label = "Accel", value = "%.1f m/s²".format(state.currentAccelMs2))
+        // Fix: Render values that round to 0.0 as positive 0.0 to avoid "-0.0" flickering
+        val displayAccel = if (abs(state.currentAccelMs2) < 0.05f) 0.0f else state.currentAccelMs2
+        MetricItem(label = "Accel", value = "%.1f m/s²".format(displayAccel))
+        
         VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = Color.Gray.copy(alpha = 0.3f))
+
         MetricItem(label = "3D G", value = "%.2f".format(state.currentG))
     }
 }
