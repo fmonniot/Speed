@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.viewmodel.RaceViewModel
-import kotlin.math.abs
 
 @Composable
 fun SettingsScreen(
@@ -82,16 +81,22 @@ fun SettingsScreenContent(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Debug",
+                text = "Battery (debug)",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)
+            )
+            Text(
+                text = "Battery metrics are updated every 5 seconds",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)
             )
 
             ListItem(
                 headlineContent = { Text("Battery Usage") },
                 supportingContent = {
-                    val wattageText = if (batteryWattage != null) "%.2f W".format(abs(batteryWattage)) else "Unknown"
+                    val wattageText = if (batteryWattage != null) "%+.2f W".format(batteryWattage) else "Unknown"
                     val capacityText = if (batteryCapacityMah != null) "$batteryCapacityMah mAh" else "Unknown"
                     Text("Wattage: $wattageText\nCapacity: $capacityText")
                 },
