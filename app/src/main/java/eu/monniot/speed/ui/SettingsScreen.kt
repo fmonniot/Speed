@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.viewmodel.RaceViewModel
+import kotlin.math.abs
 
 @Composable
 fun SettingsScreen(
@@ -21,7 +22,7 @@ fun SettingsScreen(
 ) {
     val autoStart by viewModel.autoStartSensors.collectAsState()
     val serviceState by viewModel.serviceState.collectAsState()
-    
+
     SettingsScreenContent(
         autoStart = autoStart,
         onAutoStartChange = { viewModel.setAutoStartSensors(it) },
@@ -84,20 +85,26 @@ fun SettingsScreenContent(
                 text = "Battery (debug)",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp)
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 8.dp)
             )
             Text(
                 text = "Battery metrics are updated every 5 seconds",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp)
             )
 
             ListItem(
                 headlineContent = { Text("Battery Usage") },
                 supportingContent = {
-                    val wattageText = if (batteryWattage != null) "%+.2f W".format(batteryWattage) else "Unknown"
-                    val capacityText = if (batteryCapacityMah != null) "$batteryCapacityMah mAh" else "Unknown"
+                    val wattageText =
+                        if (batteryWattage != null) "%.2f W".format(abs(batteryWattage)) else "Unknown"
+                    val capacityText =
+                        if (batteryCapacityMah != null) "$batteryCapacityMah mAh" else "Unknown"
                     Text("Wattage: $wattageText\nCapacity: $capacityText")
                 },
                 leadingContent = {
@@ -108,13 +115,19 @@ fun SettingsScreenContent(
             ListItem(
                 headlineContent = { Text("Battery Time Remaining") },
                 supportingContent = {
-                    val timeText = if (batteryTimeRemainingMs != null && batteryTimeRemainingMs > 0) {
+
+                    val timeText = if (batteryTimeRemainingMs == null) {
+                        "Unknown (Calculating...)"
+                    } else if (batteryTimeRemainingMs > 0) {
                         val hours = batteryTimeRemainingMs / 3_600_000
                         val minutes = (batteryTimeRemainingMs % 3_600_000) / 60_000
                         "${hours}h ${minutes}m"
                     } else {
-                        "Unknown (Calculating...)"
+                        val hours = batteryTimeRemainingMs / 3_600_000
+                        val minutes = (batteryTimeRemainingMs % 3_600_000) / 60_000
+                        "${-hours}h ${-minutes}m (Charging)"
                     }
+
                     Text(timeText)
                 },
                 leadingContent = {

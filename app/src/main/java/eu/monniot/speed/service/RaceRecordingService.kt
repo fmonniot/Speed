@@ -167,7 +167,7 @@ class RaceRecordingService : LifecycleService() {
                 } else if (currentUa > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     // Charging
                     val remaining = batteryManager.computeChargeTimeRemaining()
-                    if (remaining > 0) timeRemainingMs = remaining
+                    if (remaining > 0) timeRemainingMs = -remaining
                 }
 
                 _state.update {
