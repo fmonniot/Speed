@@ -1,5 +1,6 @@
 package eu.monniot.speed.fusion
 
+import eu.monniot.speed.sensor.ImuSample
 import kotlin.math.sqrt
 
 // =================================================================================================
@@ -66,7 +67,28 @@ data class ImuWindow(
     val accelY: Float,
     val accelZ: Float,
     val variance: Float
-)
+) {
+    companion object {
+        fun fromSamples(samples: List<ImuSample>): ImuWindow? {
+            if (samples.isEmpty()) return null
+
+            val ax = samples.map { it.accelWorld[0] }.average().toFloat()
+            val ay = samples.map { it.accelWorld[1] }.average().toFloat()
+            val az = samples.map { it.accelWorld[2] }.average().toFloat()
+
+            // Calculate variance for ZUPT
+            val magnitudes = samples.map { s ->
+                sqrt(s.accelWorld[0] * s.accelWorld[0] + s.accelWorld[1] * s.accelWorld[1] + s.accelWorld[2] * s.accelWorld[2])
+            }
+            val avgMag = magnitudes.average().toFloat()
+            val variance = magnitudes.map { m -> (m - avgMag) * (m - avgMag) }.average().toFloat()
+
+            return ImuWindow(ax, ay, az, variance)
+        }
+    }
+
+    val accelMagnitude: Float get() = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
+}
 
 /**
  * The most recent GPS observation, passed in on each 100ms tick.
@@ -271,29 +293,29 @@ class VelocityFusion(
 
     companion object {
         /** GPS fixes older than this are discarded entirely rather than risk using stale data. */
-        private const val GPS_MAX_AGE_MS = 300L
+        const val GPS_MAX_AGE_MS = 300L
 
         /**
          * GPS accuracy threshold above which we distrust the fix.
          * 20m is fairly loose — in clear-sky conditions you'll typically see 3–8m.
          * You could tighten this to 10m for track use where sky visibility is good.
          */
-        private const val GPS_MIN_ACCURACY_M = 20f
+        const val GPS_MIN_ACCURACY_M = 20f
 
         /**
          * Speed below which GPS bearing is considered unreliable.
          * At very low speeds, the phone's heading estimate becomes noisy.
          * The ZUPT detector handles the truly-zero case separately.
          */
-        private const val GPS_MIN_SPEED_FOR_BEARING_MS = 0.5f
+        const val GPS_MIN_SPEED_FOR_BEARING_MS = 0.5f
 
         // ZUPT thresholds — both IMU and GPS must agree before we declare a stop.
         // Requiring both prevents false stops on: slow GPS drift, sensor glitches,
         // brief decelerations, and momentary GPS outages.
-        private const val ZUPT_GPS_SPEED_THRESHOLD_MS  = 0.3f   // ~1 km/h
-        private const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.3f   // m/s² average
-        private const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.02f  // low variance = stable/still
-        private const val ZUPT_MEASUREMENT_NOISE       = 0.01f  // very confident: velocity = 0
+        const val ZUPT_GPS_SPEED_THRESHOLD_MS  = 0.3f   // ~1 km/h
+        const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.3f   // m/s² average
+        const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.02f  // low variance = stable/still
+        const val ZUPT_MEASUREMENT_NOISE       = 0.01f  // very confident: velocity = 0
     }
 
     /**
@@ -429,7 +451,3 @@ class VelocityFusion(
         lastSpeedMs = null
     }
 }
-
-// Convenience extension — ImuWindow.accelMagnitude used in isStationary()
-private val ImuWindow.accelMagnitude: Float
-    get() = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)

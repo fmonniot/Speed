@@ -4,6 +4,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import eu.monniot.speed.fusion.CoordinateTransformer
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -51,14 +52,11 @@ class ImuCollector(
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 lastRotationVector = event.values.clone()
-                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                CoordinateTransformer.getRotationMatrixFromVector(event.values, rotationMatrix)
             }
             Sensor.TYPE_LINEAR_ACCELERATION -> {
-                val worldAccel = FloatArray(3)
                 if (lastRotationVector != null) {
-                    worldAccel[0] = rotationMatrix[0] * event.values[0] + rotationMatrix[1] * event.values[1] + rotationMatrix[2] * event.values[2]
-                    worldAccel[1] = rotationMatrix[3] * event.values[0] + rotationMatrix[4] * event.values[1] + rotationMatrix[5] * event.values[2]
-                    worldAccel[2] = rotationMatrix[6] * event.values[0] + rotationMatrix[7] * event.values[1] + rotationMatrix[8] * event.values[2]
+                    val worldAccel = CoordinateTransformer.transform(event.values, rotationMatrix)
                     
                     _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp))
                     

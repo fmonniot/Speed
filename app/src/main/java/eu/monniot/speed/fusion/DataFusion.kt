@@ -7,7 +7,6 @@ import eu.monniot.speed.sensor.ImuSample
 import eu.monniot.speed.sensor.SatelliteInfo
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.math.sqrt
 
 class DataFusion(
     private val gpsFlow: SharedFlow<Location>,
@@ -62,27 +61,14 @@ class DataFusion(
                     samples
                 }
 
-                val imuWindow = if (currentImuSamples.isNotEmpty()) {
-                    val ax = currentImuSamples.map { it.accelWorld[0] }.average().toFloat()
-                    val ay = currentImuSamples.map { it.accelWorld[1] }.average().toFloat()
-                    val az = currentImuSamples.map { it.accelWorld[2] }.average().toFloat()
-                    
-                    // Calculate variance for ZUPT
-                    val magnitudes = currentImuSamples.map { s -> 
-                        sqrt(s.accelWorld[0]*s.accelWorld[0] + s.accelWorld[1]*s.accelWorld[1] + s.accelWorld[2]*s.accelWorld[2])
-                    }
-                    val avgMag = magnitudes.average().toFloat()
-                    val variance = magnitudes.map { m -> (m - avgMag) * (m - avgMag) }.average().toFloat()
-
-                    ImuWindow(ax, ay, az, variance)
-                } else null
+                val imuWindow = ImuWindow.fromSamples(currentImuSamples)
 
                 val gps = lastGpsLocation
                 val gpsObs = gps?.let {
                     val ageMs = (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000L
                     GpsObservation(
                         speedMs = it.speed,
-                        bearingRad = it.bearing * Math.PI.toFloat() / 180f,
+                        bearingRad = it.bearing * (Math.PI.toFloat() / 180f),
                         accuracyM = it.accuracy,
                         ageMs = ageMs
                     )
@@ -105,7 +91,7 @@ class DataFusion(
                     accelX = imuWindow?.accelX ?: 0f,
                     accelY = imuWindow?.accelY ?: 0f,
                     accelZ = imuWindow?.accelZ ?: 0f,
-                    accelMagnitude = imuWindow?.let { sqrt(it.accelX*it.accelX + it.accelY*it.accelY + it.accelZ*it.accelZ) } ?: 0f,
+                    accelMagnitude = imuWindow?.accelMagnitude ?: 0f,
                     derivedSpeedMs = fused.speedMs,
                     derivedAccelMs2 = fused.derivedAccelMs2 ?: 0f
                 )
