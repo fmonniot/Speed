@@ -14,6 +14,8 @@ data class DataPoint(
     val altitude: Double?,
     val gpsSpeedMs: Float?,
     val gpsAccuracyM: Float?,
+    val satellitesUsed: Int?,
+    val satellitesVisible: Int?,
     val accelX: Float,
     val accelY: Float,
     val accelZ: Float,

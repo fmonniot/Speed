@@ -24,17 +24,24 @@ class ImuCollector(private val sensorManager: SensorManager) : SensorEventListen
 
     private var rotationMatrix = FloatArray(9)
     private var lastRotationVector: FloatArray? = null
+    private var isStarted = false
 
     fun start() {
+        if (isStarted) return
+        
         val accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         val rotVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
         sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
         sensorManager.registerListener(this, rotVec, SensorManager.SENSOR_DELAY_GAME)
+        isStarted = true
     }
 
     fun stop() {
+        if (!isStarted) return
+        
         sensorManager.unregisterListener(this)
+        isStarted = false
     }
 
     override fun onSensorChanged(event: SensorEvent) {
@@ -42,13 +49,9 @@ class ImuCollector(private val sensorManager: SensorManager) : SensorEventListen
             Sensor.TYPE_ROTATION_VECTOR -> {
                 lastRotationVector = event.values.clone()
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                // For car mount (portrait), remap if necessary. 
-                // Default identity matrix is often sufficient if phone is upright.
             }
             Sensor.TYPE_LINEAR_ACCELERATION -> {
                 val worldAccel = FloatArray(3)
-                // Multiply rotation matrix by device-frame accel to get world-frame accel
-                // worldAccel = rotationMatrix * event.values
                 if (lastRotationVector != null) {
                     worldAccel[0] = rotationMatrix[0] * event.values[0] + rotationMatrix[1] * event.values[1] + rotationMatrix[2] * event.values[2]
                     worldAccel[1] = rotationMatrix[3] * event.values[0] + rotationMatrix[4] * event.values[1] + rotationMatrix[5] * event.values[2]

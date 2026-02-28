@@ -121,8 +121,7 @@ fun RecordingStatusHeader(state: ServiceState) {
 
 @Composable
 fun SpeedDisplay(state: ServiceState) {
-    val speedMs = state.latestPoint?.derivedSpeedMs ?: 0f
-    val speedKmh = speedMs * 3.6f
+    val speedKmh = state.currentSpeedMs * 3.6f
     
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
@@ -141,16 +140,13 @@ fun SpeedDisplay(state: ServiceState) {
 
 @Composable
 fun MetricsDisplay(state: ServiceState) {
-    val accel = state.latestPoint?.derivedAccelMs2 ?: 0f
-    val magnitude = state.latestPoint?.accelMagnitude ?: 0f
-    
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        MetricItem(label = "Accel", value = "%.1f m/s²".format(accel))
+        MetricItem(label = "Accel", value = "%.1f m/s²".format(state.currentAccelMs2))
         VerticalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = Color.Gray.copy(alpha = 0.3f))
-        MetricItem(label = "3D G", value = "%.2f".format(magnitude / 9.81f))
+        MetricItem(label = "3D G", value = "%.2f".format(state.currentG))
     }
 }
 
@@ -164,7 +160,8 @@ fun MetricItem(label: String, value: String) {
 
 @Composable
 fun GpsQualityIndicator(state: ServiceState) {
-    val accuracy = state.latestPoint?.gpsAccuracyM
+    val accuracy = state.currentAccuracyM
+    val sats = state.satellites
     val color = when {
         accuracy == null -> Color.Red
         accuracy < 5f -> Color.Green
@@ -180,8 +177,17 @@ fun GpsQualityIndicator(state: ServiceState) {
                 .background(color)
         )
         Spacer(modifier = Modifier.width(8.dp))
+        val gpsText = if (accuracy == null) {
+            if (sats.visible > 0) {
+                "GPS: Searching... (${sats.visible} visible)"
+            } else {
+                "GPS: Searching..."
+            }
+        } else {
+            "GPS: ±%.0fm (%d/%d sats)".format(accuracy, sats.usedInFix, sats.visible)
+        }
         Text(
-            text = if (accuracy == null) "GPS: Searching..." else "GPS: ±%.0fm".format(accuracy),
+            text = gpsText,
             style = MaterialTheme.typography.bodySmall
         )
     }

@@ -31,12 +31,23 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         val dao = RaceDatabase.getDatabase(application).dataPointDao()
         repository = RaceRepository(dao)
         sessions = repository.sessionSummaries
+        
+        // Warm up sensors immediately so we have a GPS fix when the user hits start
+        startSensors()
+    }
+
+    fun startSensors() {
+        val context = getApplication<Application>().applicationContext
+        val intent = Intent(context, RaceRecordingService::class.java).apply {
+            action = RaceRecordingService.ACTION_START_SENSORS
+        }
+        context.startForegroundService(intent)
     }
 
     fun startRecording() {
         val context = getApplication<Application>().applicationContext
         val intent = Intent(context, RaceRecordingService::class.java).apply {
-            action = RaceRecordingService.ACTION_START
+            action = RaceRecordingService.ACTION_START_RECORDING
         }
         context.startForegroundService(intent)
     }

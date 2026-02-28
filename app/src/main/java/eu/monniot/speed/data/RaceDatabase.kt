@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [DataPoint::class, Session::class], version = 1, exportSchema = false)
+@Database(entities = [DataPoint::class, Session::class], version = 3, exportSchema = false)
 abstract class RaceDatabase : RoomDatabase() {
     abstract fun dataPointDao(): DataPointDao
 
@@ -19,7 +19,9 @@ abstract class RaceDatabase : RoomDatabase() {
                     context.applicationContext,
                     RaceDatabase::class.java,
                     "race_db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

@@ -4,6 +4,7 @@ import android.location.Location
 import android.os.SystemClock
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.sensor.ImuSample
+import eu.monniot.speed.sensor.SatelliteInfo
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlin.math.sqrt
@@ -27,13 +28,15 @@ class SimpleKalmanFilter(private val q: Float, private val r: Float) {
 }
 
 class DataFusion(
-    private val sessionId: String,
     private val gpsFlow: SharedFlow<Location>,
+    private val satellitesFlow: StateFlow<SatelliteInfo>,
     private val imuFlow: SharedFlow<ImuSample>,
     private val scope: CoroutineScope
 ) {
     private val _dataPointFlow = MutableSharedFlow<DataPoint>(extraBufferCapacity = 32)
     val dataPointFlow: SharedFlow<DataPoint> = _dataPointFlow
+
+    var currentSessionId: String? = null
 
     private val kalmanFilter = SimpleKalmanFilter(0.1f, 0.5f)
     private var lastGpsLocation: Location? = null
@@ -87,8 +90,9 @@ class DataFusion(
                 val derivedAccel = (currentDerivedSpeed - lastDerivedSpeed) / 0.1f
                 lastDerivedSpeed = currentDerivedSpeed
 
+                val sats = satellitesFlow.value
                 val dataPoint = DataPoint(
-                    sessionId = sessionId,
+                    sessionId = currentSessionId ?: "LIVE",
                     elapsedRealtimeNs = SystemClock.elapsedRealtimeNanos(),
                     wallClockMs = System.currentTimeMillis(),
                     latitude = gps?.latitude,
@@ -96,6 +100,8 @@ class DataFusion(
                     altitude = gps?.altitude,
                     gpsSpeedMs = if (isGpsFresh) gps?.speed else null,
                     gpsAccuracyM = if (isGpsFresh) gps?.accuracy else null,
+                    satellitesUsed = sats.usedInFix,
+                    satellitesVisible = sats.visible,
                     accelX = avgAccel[0],
                     accelY = avgAccel[1],
                     accelZ = avgAccel[2],
