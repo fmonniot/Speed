@@ -6,6 +6,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,11 +22,14 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val autoStart by viewModel.autoStartSensors.collectAsState()
+    val recordRaw by viewModel.recordRawTraces.collectAsState()
     val serviceState by viewModel.serviceState.collectAsState()
 
     SettingsScreenContent(
         autoStart = autoStart,
         onAutoStartChange = { viewModel.setAutoStartSensors(it) },
+        recordRaw = recordRaw,
+        onRecordRawChange = { viewModel.setRecordRawTraces(it) },
         batteryWattage = serviceState.batteryWattage,
         batteryCapacityMah = serviceState.batteryCapacityMah,
         batteryTimeRemainingMs = serviceState.batteryTimeRemainingMs,
@@ -38,6 +42,8 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     autoStart: Boolean,
     onAutoStartChange: (Boolean) -> Unit,
+    recordRaw: Boolean,
+    onRecordRawChange: (Boolean) -> Unit,
     batteryWattage: Float?,
     batteryCapacityMah: Int?,
     batteryTimeRemainingMs: Long?,
@@ -77,6 +83,21 @@ fun SettingsScreenContent(
                     )
                 },
                 modifier = Modifier.clickable { onAutoStartChange(!autoStart) }
+            )
+
+            ListItem(
+                headlineContent = { Text("Record Raw Traces") },
+                supportingContent = { Text("Log high-frequency IMU and GPS data to CSV for testing\n(Uses more storage)") },
+                leadingContent = {
+                    Icon(Icons.Default.SdStorage, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = recordRaw,
+                        onCheckedChange = onRecordRawChange
+                    )
+                },
+                modifier = Modifier.clickable { onRecordRawChange(!recordRaw) }
             )
 
             Spacer(modifier = Modifier.height(16.dp))

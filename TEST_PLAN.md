@@ -74,10 +74,10 @@ End-to-end verification of user flows.
 High-fidelity logic verification using real-world sensor traces.
 
 ### 5.1. Raw Logging Infrastructure
-- [ ] **Define `RawSensorSink` Interface**: To decouple sensor collectors from the storage mechanism.
-- [ ] **Implement `FileRawSink`**: A high-performance logger (CSV or binary) to record raw high-frequency `ImuSample` (100Hz) and `Location` (1Hz) data.
-- [ ] **Instrumentation**: Update `ImuCollector` and `GpsCollector` to optionally pipe data into a `RawSensorSink`.
-- [ ] **Dev Toggle**: Add a "Record Raw Traces" switch in the Settings screen to enable/disable this logging.
+- [x] **Define `RawSensorSink` Interface**: To decouple sensor collectors from the storage mechanism.
+- [x] **Implement `FileRawSink`**: A high-performance logger (CSV or binary) to record raw high-frequency `ImuSample` (100Hz) and `Location` (1Hz) data.
+- [x] **Instrumentation**: Update `ImuCollector` and `GpsCollector` to optionally pipe data into a `RawSensorSink`.
+- [x] **Dev Toggle**: Add a "Record Raw Traces" switch in the Settings screen to enable/disable this logging.
 
 ### 5.2. Test Replayer
 - [ ] **Implement `SensorReplayer`**: A test utility that reads raw trace files and emits them as `SharedFlow<ImuSample>` and `SharedFlow<Location>`.
@@ -93,5 +93,5 @@ High-fidelity logic verification using real-world sensor traces.
 | DB | Room CRUD | ⏳ Pending |
 | UI | Navigation Suite | ⏳ Pending |
 | E2E | Export Flow | ⏳ Pending |
-| Raw | Raw Logging Infrastructure | ⏳ Pending |
+| Raw | Raw Logging Infrastructure | ✅ Done |
 | Raw | Sensor Replayer Logic | ⏳ Pending |

@@ -61,11 +61,11 @@ class MainActivity : ComponentActivity() {
 
     private fun shareFile(uri: Uri) {
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
+            type = "*/*" // Changed to support multiple types (CSV and potentially others)
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        startActivity(Intent.createChooser(intent, "Share Race Session CSV"))
+        startActivity(Intent.createChooser(intent, "Share Race Session Data"))
     }
 }
 

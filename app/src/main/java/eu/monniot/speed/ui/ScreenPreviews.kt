@@ -1,9 +1,7 @@
 package eu.monniot.speed.ui
 
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavDestination
 import eu.monniot.speed.MainDestination
@@ -85,6 +83,8 @@ fun PreviewSettingsScreen() {
             SettingsScreenContent(
                 autoStart = true,
                 onAutoStartChange = {},
+                recordRaw = true,
+                onRecordRawChange = {},
                 batteryWattage = -0.52f,
                 batteryCapacityMah = 4500,
                 batteryTimeRemainingMs = 12600000L
