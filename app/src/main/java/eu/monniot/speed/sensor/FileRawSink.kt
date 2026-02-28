@@ -2,6 +2,7 @@ package eu.monniot.speed.sensor
 
 import android.content.Context
 import android.location.Location
+import android.os.SystemClock
 import android.util.Log
 import java.io.BufferedWriter
 import java.io.File
@@ -55,7 +56,8 @@ class FileRawSink(private val context: Context) : RawSensorSink {
 
     override fun onGnssStatusEvent(usedInFix: Int, visible: Int) {
         // S,timestamp,used,visible
-        val line = "S,${System.nanoTime()}, $usedInFix, $visible\n"
+        // Fix: Use SystemClock.elapsedRealtimeNanos() for consistency with other sensors
+        val line = "S,${SystemClock.elapsedRealtimeNanos()}, $usedInFix, $visible\n"
         writeLine(line)
     }
 
