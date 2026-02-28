@@ -96,6 +96,7 @@ fun SessionDetailContent(
                 val maxSpeed = points.maxByOrNull { it.gpsSpeedMs ?: 0f }?.gpsSpeedMs ?: 0f
                 val avgSpeed = if (points.isNotEmpty()) points.map { it.gpsSpeedMs ?: 0f }.average().toFloat() else 0f
                 
+                // 1. Summary Card
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -114,6 +115,19 @@ fun SessionDetailContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
                 
+                // 2. Speed Profile (Visualization)
+                Text("Speed Profile", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                SpeedChart(
+                    points = points,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 3. Notes (Commentary)
                 Text("Notes", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -126,19 +140,7 @@ fun SessionDetailContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                Text("Speed Profile", style = MaterialTheme.typography.titleMedium)
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                SpeedChart(
-                    points = points,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(24.dp))
-                
+                // 4. Session Info (Metadata)
                 Text("Session Info", style = MaterialTheme.typography.titleMedium)
                 ListItem(headlineContent = { Text("Data Points") }, trailingContent = { Text("${points.size}") })
                 ListItem(headlineContent = { Text("Duration") }, trailingContent = { 
