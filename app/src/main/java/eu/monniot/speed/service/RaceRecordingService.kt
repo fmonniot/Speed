@@ -29,6 +29,7 @@ data class ServiceState(
     val latestPoint: DataPoint? = null,
     val pointCount: Int = 0,
     val elapsedSeconds: Int = 0,
+    val sessionStartTimeMs: Long = 0L,
     val sessionStartElapsedNs: Long = 0L,
     val satellites: SatelliteInfo = SatelliteInfo(),
     // Live metrics even when not recording
@@ -249,6 +250,7 @@ class RaceRecordingService : LifecycleService() {
             it.copy(
                 isRecording = true,
                 sessionId = sessionId,
+                sessionStartTimeMs = startMs,
                 sessionStartElapsedNs = startNs,
                 pointCount = 0,
                 elapsedSeconds = 0,
@@ -291,12 +293,14 @@ class RaceRecordingService : LifecycleService() {
             currentState.sessionId?.let { sid ->
                 val points = repository.getPointsForSession(sid)
                 val maxSpeed = points.maxByOrNull { it.gpsSpeedMs ?: 0f }?.gpsSpeedMs ?: 0f
-                repository.updateSession(Session(sid, 0L, System.currentTimeMillis(), points.size, maxSpeed))
+                repository.updateSession(Session(sid, currentState.sessionStartTimeMs, System.currentTimeMillis(), points.size, maxSpeed))
             }
             _state.update { 
                 it.copy(
                     isRecording = false,
                     sessionId = null,
+                    sessionStartTimeMs = 0L,
+                    sessionStartElapsedNs = 0L,
                     latestPoint = null,
                     pointCount = 0,
                     elapsedSeconds = 0
