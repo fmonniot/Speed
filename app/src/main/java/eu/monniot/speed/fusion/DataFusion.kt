@@ -7,25 +7,8 @@ import eu.monniot.speed.sensor.ImuSample
 import eu.monniot.speed.sensor.SatelliteInfo
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlin.math.sqrt
+import kotlin.math.*
 
-class SimpleKalmanFilter(private val q: Float, private val r: Float) {
-    private var speed: Float = 0f
-    private var p: Float = 1f
-
-    fun predict(dt: Float, accel: Float) {
-        speed += accel * dt
-        p += q
-    }
-
-    fun update(measurement: Float) {
-        val k = p / (p + r)
-        speed += k * (measurement - speed)
-        p *= (1 - k)
-    }
-
-    fun getSpeed() = speed
-}
 
 class DataFusion(
     private val gpsFlow: SharedFlow<Location>,
@@ -76,11 +59,25 @@ class DataFusion(
 
                 val accelMagnitude = sqrt(avgAccel[0] * avgAccel[0] + avgAccel[1] * avgAccel[1] + avgAccel[2] * avgAccel[2])
 
-                // Kalman prediction
-                kalmanFilter.predict(0.1f, accelMagnitude)
-
                 val gps = lastGpsLocation
                 val isGpsFresh = gps != null && (SystemClock.elapsedRealtimeNanos() - gps.elapsedRealtimeNanos) < 300_000_000L
+
+                // FIX: Speed always going up was caused by integrating the absolute magnitude of acceleration.
+                // We now project the 3D acceleration onto the direction of travel (longitudinal axis) 
+                // to get a signed value (positive for acceleration, negative for braking).
+                var longitudinalAccel = 0f
+                if (gps != null && (gps.speed > 0.5f || gps.hasBearing())) {
+                    val bearingRad = gps.bearing * PI.toFloat() / 180f
+                    // In world frame: 0 is East (X), 1 is North (Y). Bearing 0 is North.
+                    // Unit vector for bearing theta: [sin(theta), cos(theta)]
+                    longitudinalAccel = avgAccel[0] * sin(bearingRad) + avgAccel[1] * cos(bearingRad)
+                }
+                
+                // Deadzone to filter out sensor bias and noise when stationary or at constant speed
+                if (abs(longitudinalAccel) < 0.15f) longitudinalAccel = 0f
+
+                // Kalman prediction step using signed acceleration
+                kalmanFilter.predict(0.1f, longitudinalAccel)
 
                 if (isGpsFresh && gps != null) {
                     kalmanFilter.update(gps.speed)
