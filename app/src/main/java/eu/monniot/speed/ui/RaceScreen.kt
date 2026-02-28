@@ -47,6 +47,7 @@ fun RaceScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RaceScreenContent(
     serviceState: ServiceState,
@@ -59,50 +60,60 @@ fun RaceScreenContent(
     showPastSessions: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Race Logger") }
+            )
+        },
         modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        SensorToggle(
-            isEnabled = serviceState.isSensorsEnabled,
-            onToggle = onToggleSensors
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        SpeedDisplay(serviceState)
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        MetricsDisplay(serviceState)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        GpsQualityIndicator(serviceState)
-        
-        Spacer(modifier = Modifier.weight(1f))
-
-        RecordingStatusHeader(serviceState)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        StartStopButton(
-            isRecording = serviceState.isRecording,
-            isEnabled = serviceState.isSensorsEnabled,
-            onStart = onStart,
-            onStop = onStop
-        )
-        
-        if (showPastSessions) {
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SensorToggle(
+                isEnabled = serviceState.isSensorsEnabled,
+                onToggle = onToggleSensors
+            )
+            
             Spacer(modifier = Modifier.height(32.dp))
             
-            PastSessionsList(
-                sessions = sessions,
-                onSessionClick = onSessionClick,
-                onDelete = onDeleteSession
+            SpeedDisplay(serviceState)
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            MetricsDisplay(serviceState)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            GpsQualityIndicator(serviceState)
+            
+            Spacer(modifier = Modifier.weight(1f))
+
+            RecordingStatusHeader(serviceState)
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            StartStopButton(
+                isRecording = serviceState.isRecording,
+                isEnabled = serviceState.isSensorsEnabled,
+                onStart = onStart,
+                onStop = onStop
             )
+            
+            if (showPastSessions) {
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                PastSessionsList(
+                    sessions = sessions,
+                    onSessionClick = onSessionClick,
+                    onDelete = onDeleteSession
+                )
+            }
         }
     }
 }
@@ -306,66 +317,8 @@ fun StartStopButton(
     }
 }
 
-@Composable
-fun PastSessionsList(
-    sessions: List<SessionSummary>,
-    onSessionClick: (String) -> Unit,
-    onDelete: (String) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "Past Sessions",
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.Gray,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 300.dp)
-        ) {
-            items(sessions) { session ->
-                SessionItem(session, onSessionClick, onDelete)
-            }
-        }
-    }
-}
 
-@Composable
-fun SessionItem(
-    session: SessionSummary,
-    onSessionClick: (String) -> Unit,
-    onDelete: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable { onSessionClick(session.sessionId) },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Session ${session.sessionId.take(6)}",
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Max: %.1f km/h".format((session.maxSpeedMs ?: 0f) * 3.6f),
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            IconButton(onClick = { onDelete(session.sessionId) }) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Details", tint = Color.Gray)
-            }
-        }
-    }
-}
-
+// TODO Utility used by multiple screens
 fun formatDuration(seconds: Int): String {
     val h = seconds / 3600
     val m = (seconds % 3600) / 60

@@ -24,49 +24,60 @@ fun SettingsScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreenContent(
     autoStart: Boolean,
     onAutoStartChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") }
+            )
+        },
         modifier = modifier
-            .padding(16.dp)
-            .fillMaxSize()
-    ) {
-        Text(
-            text = "General",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .padding(16.dp)
+                .fillMaxSize()
+        ) {
+            Text(
+                text = "General",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
 
-        ListItem(
-            headlineContent = { Text("Auto-start sensors") },
-            supportingContent = { Text("Automatically enable High Precision Mode when the app opens") },
-            leadingContent = {
-                Icon(Icons.Default.BatteryChargingFull, contentDescription = null)
-            },
-            trailingContent = {
-                Switch(
-                    checked = autoStart,
-                    onCheckedChange = onAutoStartChange
-                )
-            },
-            modifier = Modifier.clickable { onAutoStartChange(!autoStart) }
-        )
+            ListItem(
+                headlineContent = { Text("Auto-start sensors") },
+                supportingContent = { Text("Automatically enable High Precision Mode when the app opens") },
+                leadingContent = {
+                    Icon(Icons.Default.BatteryChargingFull, contentDescription = null)
+                },
+                trailingContent = {
+                    Switch(
+                        checked = autoStart,
+                        onCheckedChange = onAutoStartChange
+                    )
+                },
+                modifier = Modifier.clickable { onAutoStartChange(!autoStart) }
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = "Debug",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+            Text(
+                text = "Debug",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
 
-        // TODO Add items for debug (things like battery wattage consumption, time remaining, etc…)
-        // Mostly useful to understand how the app behave and −potentially− improve it
+            // TODO Add items for debug (things like battery wattage consumption, time remaining, etc…)
+            // Mostly useful to understand how the app behave and −potentially− improve it
+        }
     }
 }
