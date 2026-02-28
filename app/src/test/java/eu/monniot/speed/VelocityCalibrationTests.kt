@@ -11,9 +11,19 @@ import kotlin.math.PI
 
 class VelocityCalibrationTests {
 
+    private val resultsFile =
+        File("/Users/francoismonniot/Projects/github.com/fmonniot/Speed/app/calibration_results.txt")
+
+    @Test
+    fun testStationaryPhone() {
+        runCalibration(
+            traceFileName = "trace_e739b57d-9d4d-40e0-924b-7521027eb77d.csv",
+            description = "Stationary Phone Ground Truth (Phone sitting on a flat desk)"
+        )
+    }
+
     /**
-     * Calibration test for a phone stationary on a flat surface.
-     * Ground Truth: Speed = 0.0 km/h, ZUPT = 100%.
+     * Calibration logic for a given trace.
      *
      * NOTE ON STATUS (S) EVENTS:
      * Current legacy traces have corrupted timestamps for Status events because they were
@@ -23,24 +33,22 @@ class VelocityCalibrationTests {
      * We currently filter these out to allow testing of IMU and GPS fusion.
      * This logic will be removed once new traces are recorded with the fixed FileRawSink.
      */
-    @Test
-    fun testStationaryPhone() {
-        val traceFileName = "trace_e739b57d-9d4d-40e0-924b-7521027eb77d.csv"
+    private fun runCalibration(traceFileName: String, description: String) {
         val allEvents = try {
             SensorReplayer
                 .fromRawTraceResource("src/test/resources/raw_traces/$traceFileName")
                 .getEvents()
         } catch (e: Exception) {
-            println("FAILED to load trace: ${e.message}")
+            println("FAILED to load trace $traceFileName: ${e.message}")
             return
         }
 
-        val resultsFile =
-            File("/Users/francoismonniot/Projects/github.com/fmonniot/Speed/app/calibration_results.txt")
+        resultsFile.appendText("\n" + "=".repeat(80) + "\n")
+        resultsFile.appendText("CALIBRATION ANALYSIS: $description\n")
+        resultsFile.appendText("Trace File: $traceFileName\n")
+        resultsFile.appendText("=".repeat(80) + "\n\n")
 
-        resultsFile.writeText("=== Calibration Analysis for $traceFileName ===\n\n")
-
-        // 1. Raw Data Stats & Range Analysis
+        // 1. Raw Data Stats & Timeline Analysis
         val imuEvents = allEvents.filterIsInstance<RawEvent.Imu>()
         val gpsEvents = allEvents.filterIsInstance<RawEvent.Gps>()
         val statusEvents = allEvents.filterIsInstance<RawEvent.Status>()
@@ -48,16 +56,22 @@ class VelocityCalibrationTests {
         resultsFile.appendText("Raw Event Statistics:\n")
         resultsFile.appendText("- Total Events: ${allEvents.size}\n")
         if (allEvents.isNotEmpty()) {
-            resultsFile.appendText("- Trace Duration (Raw): %.2f seconds\n"
-                .format((allEvents.last().timestampNs - allEvents.first().timestampNs) / 1_000_000_000f))
+            resultsFile.appendText(
+                "- Trace Duration (Raw): %.2f seconds\n"
+                    .format((allEvents.last().timestampNs - allEvents.first().timestampNs) / 1_000_000_000f)
+            )
         }
         if (imuEvents.isNotEmpty()) {
-            resultsFile.appendText("- IMU Events: ${imuEvents.size} | Range: ${imuEvents.first().timestampNs} to ${imuEvents.last().timestampNs} (%.2f s)\n"
-                .format((imuEvents.last().timestampNs - imuEvents.first().timestampNs) / 1_000_000_000f))
+            resultsFile.appendText(
+                "- IMU Events: ${imuEvents.size} | Range: ${imuEvents.first().timestampNs} to ${imuEvents.last().timestampNs} (%.2f s)\n"
+                    .format((imuEvents.last().timestampNs - imuEvents.first().timestampNs) / 1_000_000_000f)
+            )
         }
         if (gpsEvents.isNotEmpty()) {
-            resultsFile.appendText("- GPS Events: ${gpsEvents.size} | Range: ${gpsEvents.first().timestampNs} to ${gpsEvents.last().timestampNs} (%.2f s)\n"
-                .format((gpsEvents.last().timestampNs - gpsEvents.first().timestampNs) / 1_000_000_000f))
+            resultsFile.appendText(
+                "- GPS Events: ${gpsEvents.size} | Range: ${gpsEvents.first().timestampNs} to ${gpsEvents.last().timestampNs} (%.2f s)\n"
+                    .format((gpsEvents.last().timestampNs - gpsEvents.first().timestampNs) / 1_000_000_000f)
+            )
         }
         if (statusEvents.isNotEmpty()) {
             resultsFile.appendText("- Status Events: ${statusEvents.size} | Range: ${statusEvents.first().timestampNs} to ${statusEvents.last().timestampNs}\n")
@@ -70,8 +84,10 @@ class VelocityCalibrationTests {
             it !is RawEvent.Status && Math.abs(it.timestampNs - baseTs) < 3600_000_000_000L
         }.sortedBy { it.timestampNs }
 
-        resultsFile.appendText("\nFinal Filtered Duration: %.2f seconds\n\n"
-            .format((events.last().timestampNs - events.first().timestampNs) / 1_000_000_000f))
+        resultsFile.appendText(
+            "\nFinal Filtered Duration: %.2f seconds\n\n"
+                .format((events.last().timestampNs - events.first().timestampNs) / 1_000_000_000f)
+        )
 
         // 2. Threshold Context
         resultsFile.appendText("Active Thresholds (from VelocityFusion):\n")
@@ -90,7 +106,7 @@ class VelocityCalibrationTests {
         for (q in qValues) {
             for (r in rValues) {
                 val fusion = VelocityFusion(kalmanQ = q, kalmanR = r)
-                val results = runFusion(events, fusion)
+                val results = runTickLoop(events, fusion)
 
                 val speeds = results.map { it.speedMs }
                 val maxSpeedKmh = (speeds.maxOrNull() ?: 0f) * 3.6f
@@ -111,7 +127,7 @@ class VelocityCalibrationTests {
 
     private data class TickResult(val speedMs: Float, val isStationary: Boolean)
 
-    private fun runFusion(events: List<RawEvent>, fusion: VelocityFusion): List<TickResult> {
+    private fun runTickLoop(events: List<RawEvent>, fusion: VelocityFusion): List<TickResult> {
         val output = mutableListOf<TickResult>()
         if (events.isEmpty()) return output
 
@@ -134,10 +150,7 @@ class VelocityCalibrationTests {
                     imuSamplesInWindow.add(ImuSample(worldAccel, event.timestampNs))
                 }
 
-                is RawEvent.Gps -> {
-                    latestGps = event
-                }
-
+                is RawEvent.Gps -> latestGps = event
                 else -> {}
             }
 
