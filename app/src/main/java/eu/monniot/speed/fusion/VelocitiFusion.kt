@@ -1,6 +1,7 @@
 package eu.monniot.speed.fusion
 
 import eu.monniot.speed.sensor.ImuSample
+import kotlin.math.PI
 import kotlin.math.sqrt
 
 // =================================================================================================
@@ -69,6 +70,10 @@ data class ImuWindow(
     val variance: Float
 ) {
     companion object {
+        /**
+         * Creates an ImuWindow by aggregating a list of IMU samples.
+         * Aggregation averages out high-frequency noise/vibration before the Kalman Predict phase.
+         */
         fun fromSamples(samples: List<ImuSample>): ImuWindow? {
             if (samples.isEmpty()) return null
 
@@ -76,7 +81,8 @@ data class ImuWindow(
             val ay = samples.map { it.accelWorld[1] }.average().toFloat()
             val az = samples.map { it.accelWorld[2] }.average().toFloat()
 
-            // Calculate variance for ZUPT
+            // Calculate variance for ZUPT. 
+            // We use the magnitude of the acceleration vector to detect overall stillness.
             val magnitudes = samples.map { s ->
                 sqrt(s.accelWorld[0] * s.accelWorld[0] + s.accelWorld[1] * s.accelWorld[1] + s.accelWorld[2] * s.accelWorld[2])
             }
@@ -87,6 +93,7 @@ data class ImuWindow(
         }
     }
 
+    /** Convenience for magnitude calculation used in ZUPT logic. */
     val accelMagnitude: Float get() = sqrt(accelX * accelX + accelY * accelY + accelZ * accelZ)
 }
 
@@ -313,8 +320,8 @@ class VelocityFusion(
         // Requiring both prevents false stops on: slow GPS drift, sensor glitches,
         // brief decelerations, and momentary GPS outages.
         const val ZUPT_GPS_SPEED_THRESHOLD_MS  = 0.3f   // ~1 km/h
-        const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.3f   // m/s² average
-        const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.02f  // low variance = stable/still
+        const val ZUPT_IMU_MAGNITUDE_THRESHOLD = 0.25f  // m/s² average. Tightened slightly based on stationary tests
+        const val ZUPT_IMU_VARIANCE_THRESHOLD  = 0.015f // low variance = stable/still. Tightened slightly based on stationary tests
         const val ZUPT_MEASUREMENT_NOISE       = 0.01f  // very confident: velocity = 0
     }
 
@@ -407,36 +414,37 @@ class VelocityFusion(
     /**
      * Determines whether the vehicle is stationary this tick.
      *
-     * DESIGN DECISION — why require both GPS AND IMU to agree:
+     * DESIGN DECISION — why treat stale GPS as "no information":
      *
-     *   GPS-only check would fire falsely during:
-     *     • Slow GPS drift while parked (GPS reports 0.1–0.4 m/s even when stopped)
-     *     • Momentary GPS dropouts (speed returns null, not zero)
-     *     • Tunnels where GPS is lost but vehicle is still moving
+     *   GPS updates typically arrive at 1Hz, while fusion ticks run at 10Hz.
+     *   For ~90% of ticks, the most recent GPS fix is "stale" (age > 300ms).
+     *   If we strictly required BOTH to agree at all times, ZUPT would only fire
+     *   once per second even if the phone is perfectly still.
      *
-     *   IMU-only check would fire falsely during:
-     *     • Brief coasting on a smooth straight (low IMU variance, but not stopped)
-     *     • Sensor glitches that zero out for a few samples
+     *   Correct strategy:
+     *     • If GPS is FRESH: BOTH must agree (stops false IMU triggers on smooth roads).
+     *     • If GPS is STALE or MISSING: Rely on IMU ONLY (avoids ZUPT blocking while parked).
      *
-     *   Requiring both dramatically reduces false positives. The cost is a slightly
-     *   delayed ZUPT trigger (~100–200ms extra) but this is imperceptible in practice.
-     *
-     *   Exception: if GPS is completely unavailable (tunnel), fall back to IMU-only ZUPT
-     *   with a tighter threshold to avoid false stops on smooth straights.
+     *   This ensures continuous ZUPT during standstills while maintaining the safety
+     *   of GPS-gated ZUPT during smooth driving.
      */
     private fun isStationary(imu: ImuWindow?, gps: GpsObservation?): Boolean {
+        // IMU check is always mandatory for ZUPT
         val imuSaysStill = imu != null
                 && imu.accelMagnitude < ZUPT_IMU_MAGNITUDE_THRESHOLD
                 && imu.variance       < ZUPT_IMU_VARIANCE_THRESHOLD
 
-        val gpsSaysStill = gps != null
-                && gps.ageMs   < GPS_MAX_AGE_MS
-                && gps.accuracyM < GPS_MIN_ACCURACY_M
-                && gps.speedMs < ZUPT_GPS_SPEED_THRESHOLD_MS
+        // Only consider GPS if it's fresh. Stale GPS shouldn't block ZUPT.
+        val freshGps = gps?.takeIf {
+            it.ageMs < GPS_MAX_AGE_MS && it.accuracyM < GPS_MIN_ACCURACY_M
+        }
 
-        return when {
-            gps != null -> imuSaysStill && gpsSaysStill   // GPS available: require both
-            else        -> imuSaysStill                    // No GPS (tunnel): IMU only
+        return if (freshGps != null) {
+            // If GPS is fresh, BOTH must agree
+            imuSaysStill && freshGps.speedMs < ZUPT_GPS_SPEED_THRESHOLD_MS
+        } else {
+            // If GPS is stale or missing (outage/tunnel), rely on IMU only
+            imuSaysStill
         }
     }
 
