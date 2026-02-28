@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="eu.monniot.speed">
+    package="eu.monniot.speed" >
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -10,38 +10,37 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:name="eu.monniot.speed.RaceLoggerApplication"
+        android:name=".RaceLoggerApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="Race Logger"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Speed">
-
+        android:theme="@style/Theme.Speed" >
         <activity
-            android:name="eu.monniot.speed.MainActivity"
-            android:exported="true">
+            android:name=".MainActivity"
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
         <service
-            android:name="eu.monniot.speed.service.RaceRecordingService"
-            android:foregroundServiceType="location"
-            android:exported="false" />
+            android:name=".service.RaceRecordingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
             android:exported="false"
-            android:grantUriPermissions="true">
+            android:grantUriPermissions="true" >
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
     </application>
 
 </manifest>
