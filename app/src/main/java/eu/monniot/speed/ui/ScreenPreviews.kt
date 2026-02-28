@@ -89,6 +89,9 @@ fun PreviewSettingsScreen() {
             SettingsScreenContent(
                 autoStart = true,
                 onAutoStartChange = {},
+                batteryWattage = -0.52f,
+                batteryCapacityMah = 4500,
+                batteryTimeRemainingMs = 12600000L,
                 modifier = Modifier.padding(innerPadding)
             )
         }

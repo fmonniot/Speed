@@ -1,13 +1,12 @@
 package eu.monniot.speed.service
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.location.LocationManager
-import android.os.Binder
-import android.os.IBinder
-import android.os.PowerManager
-import android.os.SystemClock
+import android.os.*
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -18,9 +17,12 @@ import eu.monniot.speed.sensor.GpsCollector
 import eu.monniot.speed.sensor.ImuCollector
 import eu.monniot.speed.sensor.SatelliteInfo
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlin.math.abs
 
 data class ServiceState(
     val isRecording: Boolean = false,
@@ -35,7 +37,11 @@ data class ServiceState(
     val currentSpeedMs: Float = 0f,
     val currentAccelMs2: Float = 0f,
     val currentG: Float = 0f,
-    val currentAccuracyM: Float? = null
+    val currentAccuracyM: Float? = null,
+    // Battery metrics
+    val batteryWattage: Float? = null,
+    val batteryCapacityMah: Int? = null,
+    val batteryTimeRemainingMs: Long? = null
 )
 
 class RaceRecordingService : LifecycleService() {
@@ -46,6 +52,15 @@ class RaceRecordingService : LifecycleService() {
     private var dataFusion: DataFusion? = null
     
     private var wakeLock: PowerManager.WakeLock? = null
+
+    private var batteryVoltageMv: Int = 0
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_BATTERY_CHANGED) {
+                batteryVoltageMv = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0)
+            }
+        }
+    }
     
     companion object {
         const val ACTION_START_SENSORS = "ACTION_START_SENSORS"
@@ -113,10 +128,64 @@ class RaceRecordingService : LifecycleService() {
                 }
             }
         }
+
+        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        startBatteryStatsCollection()
+    }
+
+    private fun startBatteryStatsCollection() {
+        lifecycleScope.launch {
+            val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            while (isActive) {
+                val currentUa = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+                // currentUa is positive when charging, negative when discharging on most devices.
+                
+                val wattage = if (batteryVoltageMv > 0) {
+                    (currentUa.toFloat() / 1_000_000f) * (batteryVoltageMv.toFloat() / 1_000f)
+                } else {
+                    null
+                }
+
+                val chargeCounterUah = batteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
+                val capacityPercent = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                
+                val totalCapacityMah = if (capacityPercent > 0) {
+                    (chargeCounterUah / 1000.0 / (capacityPercent / 100.0)).toInt()
+                } else {
+                    null
+                }
+
+                // Estimate time remaining
+                var timeRemainingMs: Long? = null
+                if (currentUa < 0) {
+                    // Discharging: remaining mAh / current mA
+                    val currentMa = abs(currentUa) / 1000.0
+                    val remainingMah = chargeCounterUah / 1000.0
+                    if (currentMa > 0) {
+                        timeRemainingMs = (remainingMah / currentMa * 3600 * 1000).toLong()
+                    }
+                } else if (currentUa > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    // Charging
+                    val remaining = batteryManager.computeChargeTimeRemaining()
+                    if (remaining > 0) timeRemainingMs = remaining
+                }
+
+                _state.update {
+                    it.copy(
+                        batteryWattage = wattage,
+                        batteryCapacityMah = totalCapacityMah,
+                        batteryTimeRemainingMs = timeRemainingMs
+                    )
+                }
+                
+                delay(5000) // Update every 5 seconds
+            }
+        }
     }
 
     override fun onDestroy() {
         stopSensors()
+        unregisterReceiver(batteryReceiver)
         super.onDestroy()
     }
 
