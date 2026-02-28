@@ -36,7 +36,11 @@ class DataFusion(
         scope.launch(Dispatchers.Default) {
             // Collect IMU samples in real-time
             launch {
-                imuFlow.collect { imuSamples.add(it) }
+                imuFlow.collect { 
+                    synchronized(imuSamples) {
+                        imuSamples.add(it)
+                    }
+                }
             }
 
             // Collect GPS locations
