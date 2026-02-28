@@ -111,7 +111,6 @@ fun SpeedApp(viewModel: RaceViewModel) {
             composable(MainDestination.RACE.route) {
                 RaceScreen(
                     viewModel = viewModel,
-                    showPastSessions = false
                 )
             }
             composable(MainDestination.SESSIONS.route) {

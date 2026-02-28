@@ -29,21 +29,14 @@ import kotlin.math.abs
 @Composable
 fun RaceScreen(
     viewModel: RaceViewModel,
-    onSessionClick: (String) -> Unit = {},
-    showPastSessions: Boolean = true
 ) {
     val serviceState by viewModel.serviceState.collectAsState()
-    val sessions by viewModel.sessions.collectAsState(initial = emptyList())
 
     RaceScreenContent(
         serviceState = serviceState,
-        sessions = sessions,
         onStart = { viewModel.startRecording() },
         onStop = { viewModel.stopRecording() },
         onToggleSensors = { viewModel.toggleSensors() },
-        onSessionClick = onSessionClick,
-        onDeleteSession = { viewModel.deleteSession(it) },
-        showPastSessions = showPastSessions
     )
 }
 
@@ -51,13 +44,9 @@ fun RaceScreen(
 @Composable
 fun RaceScreenContent(
     serviceState: ServiceState,
-    sessions: List<SessionSummary> = emptyList(),
     onStart: () -> Unit,
     onStop: () -> Unit,
     onToggleSensors: () -> Unit,
-    onSessionClick: (String) -> Unit = {},
-    onDeleteSession: (String) -> Unit = {},
-    showPastSessions: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -104,16 +93,6 @@ fun RaceScreenContent(
                 onStart = onStart,
                 onStop = onStop
             )
-            
-            if (showPastSessions) {
-                Spacer(modifier = Modifier.height(32.dp))
-                
-                PastSessionsList(
-                    sessions = sessions,
-                    onSessionClick = onSessionClick,
-                    onDelete = onDeleteSession
-                )
-            }
         }
     }
 }
