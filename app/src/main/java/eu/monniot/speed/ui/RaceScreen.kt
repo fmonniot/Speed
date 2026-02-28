@@ -53,10 +53,11 @@ fun RaceScreenContent(
     onStop: () -> Unit,
     onSessionClick: (String) -> Unit = {},
     onDeleteSession: (String) -> Unit = {},
-    showPastSessions: Boolean = true
+    showPastSessions: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally

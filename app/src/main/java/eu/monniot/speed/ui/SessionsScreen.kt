@@ -26,10 +26,11 @@ fun SessionsScreen(
 fun SessionsScreenContent(
     sessions: List<SessionSummary>,
     onSessionClick: (String) -> Unit,
-    onDelete: (String) -> Unit
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
