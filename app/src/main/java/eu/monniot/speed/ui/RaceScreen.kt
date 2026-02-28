@@ -65,16 +65,12 @@ fun RaceScreenContent(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        RecordingStatusHeader(serviceState)
-        
-        Spacer(modifier = Modifier.height(16.dp))
-
         SensorToggle(
             isEnabled = serviceState.isSensorsEnabled,
             onToggle = onToggleSensors
         )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
         SpeedDisplay(serviceState)
         
@@ -87,6 +83,10 @@ fun RaceScreenContent(
         GpsQualityIndicator(serviceState)
         
         Spacer(modifier = Modifier.weight(1f))
+
+        RecordingStatusHeader(serviceState)
+        
+        Spacer(modifier = Modifier.height(16.dp))
         
         StartStopButton(
             isRecording = serviceState.isRecording,
