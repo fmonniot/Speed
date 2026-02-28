@@ -7,6 +7,7 @@ import androidx.navigation.NavDestination
 import eu.monniot.speed.MainDestination
 import eu.monniot.speed.SpeedAppShell
 import eu.monniot.speed.data.DataPoint
+import eu.monniot.speed.data.Session
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.sensor.SatelliteInfo
 import eu.monniot.speed.service.ServiceState
@@ -139,14 +140,24 @@ fun PreviewSessionDetailScreen() {
             derivedAccelMs2 = null
         )
     }
+    val mockSession = Session(
+        sessionId = "1",
+        startTimeMs = 1715000000000L,
+        endTimeMs = 1715003600000L,
+        pointCount = 20,
+        maxSpeedMs = 25f,
+        notes = "This was a great testing session on the track."
+    )
     RaceLoggerTheme {
         // We do not wrap Detail screen in SpeedAppShell because the detail screen 
         // handles its own Scaffold and TopAppBar, hiding the navigation bar in reality.
         SessionDetailContent(
+            session = mockSession,
             points = mockPoints,
             onBack = {},
             onExport = {},
-            onDelete = {}
+            onDelete = {},
+            onNotesChange = {}
         )
     }
 }

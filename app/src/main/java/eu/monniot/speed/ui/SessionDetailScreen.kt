@@ -2,8 +2,10 @@ package eu.monniot.speed.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -14,6 +16,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.data.DataPoint
+import eu.monniot.speed.data.Session
 import eu.monniot.speed.viewmodel.RaceViewModel
 
 @Composable
@@ -23,18 +26,27 @@ fun SessionDetailScreen(
     onBack: () -> Unit
 ) {
     var points by remember { mutableStateOf<List<DataPoint>>(emptyList()) }
+    var session by remember { mutableStateOf<Session?>(null) }
     
     LaunchedEffect(sessionId) {
         points = viewModel.getPointsForSession(sessionId)
+        session = viewModel.getSession(sessionId)
     }
 
     SessionDetailContent(
+        session = session,
         points = points,
         onBack = onBack,
         onExport = { viewModel.exportSession(sessionId) },
         onDelete = {
             viewModel.deleteSession(sessionId)
             onBack()
+        },
+        onNotesChange = { newNotes ->
+            session?.let {
+                viewModel.updateSessionNotes(it, newNotes)
+                session = it.copy(notes = newNotes)
+            }
         }
     )
 }
@@ -42,10 +54,12 @@ fun SessionDetailScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionDetailContent(
+    session: Session?,
     points: List<DataPoint>,
     onBack: () -> Unit,
     onExport: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onNotesChange: (String) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -53,7 +67,7 @@ fun SessionDetailContent(
                 title = { Text("Session Details") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -71,13 +85,16 @@ fun SessionDetailContent(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            if (points.isEmpty()) {
-                CircularProgressIndicator()
+            if (session == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             } else {
                 val maxSpeed = points.maxByOrNull { it.gpsSpeedMs ?: 0f }?.gpsSpeedMs ?: 0f
-                val avgSpeed = points.map { it.gpsSpeedMs ?: 0f }.average().toFloat()
+                val avgSpeed = if (points.isNotEmpty()) points.map { it.gpsSpeedMs ?: 0f }.average().toFloat() else 0f
                 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -97,6 +114,18 @@ fun SessionDetailContent(
 
                 Spacer(modifier = Modifier.height(24.dp))
                 
+                Text("Notes", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = session.notes,
+                    onValueChange = onNotesChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Add notes about this session...") },
+                    minLines = 3
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+                
                 Text("Speed Profile", style = MaterialTheme.typography.titleMedium)
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -113,7 +142,7 @@ fun SessionDetailContent(
                 Text("Session Info", style = MaterialTheme.typography.titleMedium)
                 ListItem(headlineContent = { Text("Data Points") }, trailingContent = { Text("${points.size}") })
                 ListItem(headlineContent = { Text("Duration") }, trailingContent = { 
-                    val duration = if (points.isNotEmpty()) (points.last().elapsedRealtimeNs - points.first().elapsedRealtimeNs) / 1_000_000_000 else 0
+                    val duration = if (points.size >= 2) (points.last().elapsedRealtimeNs - points.first().elapsedRealtimeNs) / 1_000_000_000 else 0
                     Text(formatDuration(duration.toInt()))
                 })
             }
@@ -124,14 +153,19 @@ fun SessionDetailContent(
 @Composable
 fun SpeedChart(points: List<DataPoint>, modifier: Modifier = Modifier) {
     val speedData = points.map { it.gpsSpeedMs ?: 0f }
-    if (speedData.isEmpty()) return
+    if (speedData.size < 2) {
+        Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+            Text("Not enough data to display chart", style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
 
-    val maxSpeed = speedData.maxOrNull() ?: 1f
+    val maxSpeed = speedData.maxOrNull()?.coerceAtLeast(1f) ?: 1f
     
     Canvas(modifier = modifier) {
         val width = size.width
         val height = size.height
-        val spacing = width / (speedData.size - 1).coerceAtLeast(1)
+        val spacing = width / (speedData.size - 1)
         
         val path = Path().apply {
             moveTo(0f, height - (speedData[0] / maxSpeed * height))

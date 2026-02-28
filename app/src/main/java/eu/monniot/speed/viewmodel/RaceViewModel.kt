@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 import android.content.Intent
+import eu.monniot.speed.data.Session
 import kotlinx.coroutines.flow.first
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -156,4 +157,12 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     suspend fun getPointsForSession(sessionId: String) = repository.getPointsForSession(sessionId)
+
+    suspend fun getSession(sessionId: String) = repository.getSession(sessionId)
+
+    fun updateSessionNotes(session: Session, notes: String) {
+        viewModelScope.launch {
+            repository.updateSession(session.copy(notes = notes))
+        }
+    }
 }
