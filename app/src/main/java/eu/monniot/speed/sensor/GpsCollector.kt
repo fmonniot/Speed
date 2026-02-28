@@ -58,9 +58,13 @@ class GpsCollector(
     fun start() {
         if (_isActive.value) return
 
+        // We do not set setMaxUpdateDelayMillis because it, for some reason, results in GPS
+        // updates coming in every 5 seconds. Probably some interference with the built-in
+        // 1Hz refresh rate of the GNSS receiver.
+        // On my phone (Flip 7), leaving it out bring down the number of updates to 1 to 2
+        // location update per second.
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 100L)
             .setMinUpdateIntervalMillis(50L)
-            .setMaxUpdateDelayMillis(200L)
             .build()
 
         client.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
