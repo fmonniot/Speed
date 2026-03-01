@@ -18,4 +18,4 @@ local.properties
 # Not staging any of the traces because they contain GPS coordinates.
 # Sorry open source community, not sharing those :)
 app/src/test/resources/raw_traces/*
-app/calibration_results.txt
+app/calibration_reports/
