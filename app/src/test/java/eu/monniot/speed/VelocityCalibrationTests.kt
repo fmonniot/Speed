@@ -16,7 +16,10 @@ private data class GpsTickStats(
     val staleGpsTicks: Int,
     val minAgeMs: Float,
     val maxAgeMs: Float,
-    val avgAgeMs: Float
+    val avgAgeMs: Float,
+    val minSpeedMs: Float,
+    val maxSpeedMs: Float,
+    val avgSpeedMs: Float
 )
 
 class VelocityCalibrationTests {
@@ -35,7 +38,7 @@ class VelocityCalibrationTests {
     @Test
     fun testAverageCityTraffic() {
         runCalibration(
-            traceFileName = "trace_e63f49da-2266-41c3-96e6-40f037319150.csv",
+            traceFileName = "trace_ba19d424-ffc2-4964-827d-163bc193d7aa.csv",
             description = "Average non-congested city traffic (Home to SF Zoo)."
         )
     }
@@ -123,7 +126,9 @@ class VelocityCalibrationTests {
         resultsFile.appendText("- Total Ticks: ${gpsStats.totalTicks}\n")
         resultsFile.appendText("- Ticks with Fresh GPS (<${VelocityFusion.GPS_MAX_AGE_MS}ms): ${gpsStats.freshGpsTicks} ($freshPercent%%)\n")
         resultsFile.appendText("- Ticks with Stale GPS: ${gpsStats.staleGpsTicks}\n")
-        resultsFile.appendText("- GPS Age (ms): min=${gpsStats.minAgeMs.toInt()}, max=${gpsStats.maxAgeMs.toInt()}, avg=${gpsStats.avgAgeMs.toInt()}\n\n")
+        resultsFile.appendText("- GPS Age (ms): min=${gpsStats.minAgeMs.toInt()}, max=${gpsStats.maxAgeMs.toInt()}, avg=${gpsStats.avgAgeMs.toInt()}\n")
+        resultsFile.appendText("- GPS Speed (m/s): min=${gpsStats.minSpeedMs}, max=${gpsStats.maxSpeedMs}, avg=${gpsStats.avgSpeedMs} (%.2f km/h)\n\n"
+            .format(gpsStats.avgSpeedMs * 3.6f))
 
         // 3. Grid Search Results
         val qValues = listOf(0.01f, 0.05f, 0.1f, 0.5f)
@@ -272,7 +277,7 @@ class VelocityCalibrationTests {
     }
 
     private fun analyzeGpsTicks(events: List<RawEvent>): GpsTickStats {
-        if (events.isEmpty()) return GpsTickStats(0, 0, 0, 0f, 0f, 0f)
+        if (events.isEmpty()) return GpsTickStats(0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f)
 
         val firstTs = events.first().timestampNs
         val tickIntervalNs = 100_000_000L
@@ -283,6 +288,7 @@ class VelocityCalibrationTests {
         var freshGpsTicks = 0
         var staleGpsTicks = 0
         val gpsAges = mutableListOf<Float>()
+        val gpsSpeeds = mutableListOf<Float>()
 
         for (event in events) {
             when (event) {
@@ -296,6 +302,7 @@ class VelocityCalibrationTests {
                 if (latestGps != null) {
                     val ageMs = (nextTickNs - latestGps.timestampNs) / 1_000_000L.toFloat()
                     gpsAges.add(ageMs)
+                    gpsSpeeds.add(latestGps.speedMs)
 
                     if (ageMs < VelocityFusion.GPS_MAX_AGE_MS) {
                         freshGpsTicks++
@@ -312,6 +319,10 @@ class VelocityCalibrationTests {
         val minAge = gpsAges.minOrNull() ?: 0f
         val maxAge = gpsAges.maxOrNull() ?: 0f
 
-        return GpsTickStats(totalTicks, freshGpsTicks, staleGpsTicks, minAge, maxAge, avgAge)
+        val avgSpeed = if (gpsSpeeds.isNotEmpty()) gpsSpeeds.average().toFloat() else 0f
+        val minSpeed = gpsSpeeds.minOrNull() ?: 0f
+        val maxSpeed = gpsSpeeds.maxOrNull() ?: 0f
+
+        return GpsTickStats(totalTicks, freshGpsTicks, staleGpsTicks, minAge, maxAge, avgAge, minSpeed, maxSpeed, avgSpeed)
     }
 }
