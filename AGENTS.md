@@ -16,23 +16,6 @@ Behavioral guidance for AI agents working on this codebase.
 
 ---
 
-## Workflow Protocols (STRICT COMPLIANCE REQUIRED)
-
-To prevent unrequested refactors and maintain extreme precision, the following protocols are **MANDATORY**. Failure to follow these will result in immediate rejection of the work.
-
-### 1. Plan-then-Confirm (The "Two-Turn" Rule)
-For any change that isn't a single-line trivial fix, you **MUST** follow this sequence:
-1. **Phase 1 (Plan)**: Describe the proposed changes in plain English. List the exact files, methods, and line numbers you intend to touch. **PROHIBITION**: You must not invoke any write tools (write_file, replace_text, etc.) during this turn.
-2. **Phase 2 (Review)**: Wait for the user to provide a "Green Light" or specific feedback.
-3. **Phase 3 (Execute)**: Apply only the agreed-upon changes using the most surgical tool available.
-
-### 2. Surgical Precision via `replace_text`
-- **STRICT PREFERENCE**: You **MUST** prefer `replace_text` over `write_file`. Overwriting an entire file is considered a "heavy-handed" action and is the primary cause of accidental context loss.
-- **Technical Constraint**: Using `replace_text` forces you to match existing strings exactly, which technically prevents you from "cleaning up" unrelated code or deleting comments.
-- **Additive by default**: Refactors and logic changes should be additive. Never delete or "simplify" existing comments, statistics, or documentation unless explicitly commanded to "Refactor for Brevity".
-
----
-
 ## Domain Knowledge
 
 ### Units and sign conventions — be explicit, never assume
