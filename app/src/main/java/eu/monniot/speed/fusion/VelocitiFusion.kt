@@ -285,16 +285,27 @@ class SimpleKalmanFilter(private val q: Float, private val r: Float) {
  *                 where the vehicle rarely changes speed abruptly.
  * @param kalmanR  GPS measurement noise. Default 0.3 (m/s)² suits modern phone GPS.
  *                 Increase if you observe the speed output being jittery on straights.
+ * @param zuptImuMagnitudeThreshold  Max IMU magnitude (m/s²) to consider stationary.
+ * @param zuptImuVarianceThreshold   Max IMU variance to consider stationary.
+ * @param zuptGpsSpeedThreshold      Max GPS speed (m/s) to consider stationary.
  */
 class VelocityFusion(
     kalmanQ: Float = 0.3f,
-    kalmanR: Float = 0.3f
+    kalmanR: Float = 0.3f,
+    zuptImuMagnitudeThreshold: Float = ZUPT_IMU_MAGNITUDE_THRESHOLD,
+    zuptImuVarianceThreshold: Float = ZUPT_IMU_VARIANCE_THRESHOLD,
+    zuptGpsSpeedThreshold: Float = ZUPT_GPS_SPEED_THRESHOLD_MS
 ) {
     // Two independent 1D filters — one per horizontal world-frame axis.
     // Running them independently is simpler than a 2D filter and works well in practice
     // because North and East accelerations are not physically coupled for a ground vehicle.
     private val kalmanNorth = SimpleKalmanFilter(q = kalmanQ, r = kalmanR)
     private val kalmanEast  = SimpleKalmanFilter(q = kalmanQ, r = kalmanR)
+
+    // Configurable ZUPT thresholds
+    private val zuptImuMagnitudeThreshold = zuptImuMagnitudeThreshold
+    private val zuptImuVarianceThreshold = zuptImuVarianceThreshold
+    private val zuptGpsSpeedThreshold = zuptGpsSpeedThreshold
 
     private var lastSpeedMs: Float? = null  // for derivedAccel computation
 
@@ -440,8 +451,8 @@ class VelocityFusion(
     private fun isStationary(imu: ImuWindow?, gps: GpsObservation?): Boolean {
         // IMU check is always mandatory for ZUPT
         val imuSaysStill = imu != null
-                && imu.accelMagnitude < ZUPT_IMU_MAGNITUDE_THRESHOLD
-                && imu.variance       < ZUPT_IMU_VARIANCE_THRESHOLD
+                && imu.accelMagnitude < zuptImuMagnitudeThreshold
+                && imu.variance       < zuptImuVarianceThreshold
 
         // Only consider GPS if it's fresh. Stale GPS shouldn't block ZUPT.
         val freshGps = gps?.takeIf {
@@ -450,7 +461,7 @@ class VelocityFusion(
 
         return if (freshGps != null) {
             // If GPS is fresh, BOTH must agree
-            imuSaysStill && freshGps.speedMs < ZUPT_GPS_SPEED_THRESHOLD_MS
+            imuSaysStill && freshGps.speedMs < zuptGpsSpeedThreshold
         } else {
             // If GPS is stale or missing (outage/tunnel), rely on IMU only
             imuSaysStill
