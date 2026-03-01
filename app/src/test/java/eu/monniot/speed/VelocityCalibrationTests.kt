@@ -5,6 +5,7 @@ import eu.monniot.speed.fusion.GpsObservation
 import eu.monniot.speed.fusion.ImuWindow
 import eu.monniot.speed.fusion.VelocityFusion
 import eu.monniot.speed.sensor.ImuSample
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestName
@@ -13,18 +14,31 @@ import java.time.LocalDateTime
 import kotlin.math.PI
 
 
-private data class GpsTickStats(
-    val totalTicks: Int,
-    val freshGpsTicks: Int,
-    val staleGpsTicks: Int,
-    val minAgeMs: Float,
-    val maxAgeMs: Float,
-    val avgAgeMs: Float,
-    val minSpeedMs: Float,
-    val maxSpeedMs: Float,
-    val avgSpeedMs: Float
-)
-
+/**
+ * Calibration and experimentation tool for VelocityFusion.
+ *
+ * This is NOT a typical unit test. Instead, it's a tool for running experiments on recorded
+ * sensor traces to tune Kalman filter parameters (Q/R) and ZUPT thresholds.
+ *
+ * Each @Test method runs a calibration analysis on a specific trace and writes detailed results
+ * to app/calibration_reports/<testName>.txt. The output includes:
+ * - Raw GPS statistics (fresh vs stale, speed distribution)
+ * - Q/R grid search results
+ * - ZUPT threshold experiments
+ * - Segment analysis (stationary vs moving behavior)
+ *
+ * HOW TO USE:
+ * - Run individual tests to analyze specific traces
+ * - All tests write to the same directory for comparison
+ * - Modify runCalibration() to add new experiments or parameters
+ * - Add new @Test methods for new traces
+ *
+ * IMPORTANT:
+ * - Do NOT convert this to a "real" unit test with assertions
+ * - This is intentionally exploratory - don't "fix" it to pass/fail
+ * - Future AI should treat this as an experimentation harness, not production test code
+ */
+@Ignore("Experiment Tests. Don't run by default like a normal unit test.")
 class VelocityCalibrationTests {
 
     @get:Rule
@@ -70,6 +84,7 @@ class VelocityCalibrationTests {
         )
     }
 
+    /*
     @Test
     fun testStationaryPhone() {
         runCalibration(
@@ -77,17 +92,16 @@ class VelocityCalibrationTests {
             description = "Stationary Phone Ground Truth (Phone sitting on a flat desk)"
         )
     }
+    */
+
+
+    // Constants for calibration experiments
+    private val TICK_INTERVAL_NS = 100_000_000L  // 100ms
+    private val MS_TO_KMH = 3.6f
+    private val STATIONARY_SPEED_THRESHOLD_MS = 1.0f  // GPS speed below this = stationary
 
     /**
      * Calibration logic for a given trace.
-     *
-     * NOTE ON STATUS (S) EVENTS:
-     * Current legacy traces have corrupted timestamps for Status events because they were
-     * recorded using System.nanoTime() instead of SystemClock.elapsedRealtimeNanos().
-     * This creates a ~5-day gap in the monotonic timeline which starves the fusion logic.
-     *
-     * We currently filter these out to allow testing of IMU and GPS fusion.
-     * This logic will be removed once new traces are recorded with the fixed FileRawSink.
      */
     private fun runCalibration(traceId: String, description: String) {
         val traceFileName = "trace_$traceId.csv"
@@ -100,9 +114,9 @@ class VelocityCalibrationTests {
             return
         }
 
-        // TODO Don't hardcode my local path
-        val resultsFile =
-            File("/Users/francoismonniot/Projects/github.com/fmonniot/Speed/app/calibration_reports/${name.methodName}.txt")
+        // Write results to app/calibration_reports/<testName>.txt
+        val resultsDir = File("app/calibration_reports").apply { mkdirs() }
+        val resultsFile = File(resultsDir, "${name.methodName}.txt")
 
         // This reset the results file for each run
         resultsFile.writeText("=".repeat(80) + "\n")
@@ -114,7 +128,6 @@ class VelocityCalibrationTests {
         // 1. Raw Data Stats & Timeline Analysis
         val imuEvents = allEvents.filterIsInstance<RawEvent.Imu>()
         val gpsEvents = allEvents.filterIsInstance<RawEvent.Gps>()
-        val statusEvents = allEvents.filterIsInstance<RawEvent.Status>()
 
         resultsFile.appendText("Raw Event Statistics:\n")
         resultsFile.appendText("- Total Events: ${allEvents.size}\n")
@@ -136,15 +149,11 @@ class VelocityCalibrationTests {
                     .format((gpsEvents.last().timestampNs - gpsEvents.first().timestampNs) / 1_000_000_000f)
             )
         }
-        if (statusEvents.isNotEmpty()) {
-            resultsFile.appendText("- Status Events: ${statusEvents.size} | Range: ${statusEvents.first().timestampNs} to ${statusEvents.last().timestampNs}\n")
-            resultsFile.appendText("  (Note: Corrupted timestamps detected in legacy traces for Status events)\n")
-        }
 
-        // Timeline Normalization: We exclude outliers (Status events using wrong clock epoch)
+        // Filter events to valid timeline
         val baseTs = imuEvents.firstOrNull()?.timestampNs ?: 0L
         val events = allEvents.filter {
-            it !is RawEvent.Status && Math.abs(it.timestampNs - baseTs) < 3600_000_000_000L
+            Math.abs(it.timestampNs - baseTs) < 3600_000_000_000L
         }.sortedBy { it.timestampNs }
 
         resultsFile.appendText(
@@ -170,7 +179,7 @@ class VelocityCalibrationTests {
         resultsFile.appendText("- GPS Age (ms): min=${gpsStats.minAgeMs.toInt()}, max=${gpsStats.maxAgeMs.toInt()}, avg=${gpsStats.avgAgeMs.toInt()}\n")
         resultsFile.appendText(
             "- GPS Speed (m/s): min=${gpsStats.minSpeedMs}, max=${gpsStats.maxSpeedMs}, avg=${gpsStats.avgSpeedMs} (%.2f km/h)\n\n"
-                .format(gpsStats.avgSpeedMs * 3.6f)
+                .format(gpsStats.avgSpeedMs * MS_TO_KMH)
         )
 
         // 3. Grid Search Results (Q/R)
@@ -186,8 +195,8 @@ class VelocityCalibrationTests {
                 val results = runTickLoop(events, fusion)
 
                 val speeds = results.map { it.speedMs }
-                val maxSpeedKmh = (speeds.maxOrNull() ?: 0f) * 3.6f
-                val avgSpeedKmh = if (speeds.isNotEmpty()) speeds.average().toFloat() * 3.6f else 0f
+                val maxSpeedKmh = (speeds.maxOrNull() ?: 0f) * MS_TO_KMH
+                val avgSpeedKmh = if (speeds.isNotEmpty()) speeds.average().toFloat() * MS_TO_KMH else 0f
                 val zuptPercent = if (results.isNotEmpty()) (results.count { it.isStationary }
                     .toFloat() / results.size) * 100f else 0f
 
@@ -219,9 +228,9 @@ class VelocityCalibrationTests {
                     val results = runTickLoop(events, fusion)
 
                     val speeds = results.map { it.speedMs }
-                    val maxSpeedKmh = (speeds.maxOrNull() ?: 0f) * 3.6f
+                    val maxSpeedKmh = (speeds.maxOrNull() ?: 0f) * MS_TO_KMH
                     val avgSpeedKmh =
-                        if (speeds.isNotEmpty()) speeds.average().toFloat() * 3.6f else 0f
+                        if (speeds.isNotEmpty()) speeds.average().toFloat() * MS_TO_KMH else 0f
                     val zuptPercent = if (results.isNotEmpty()) (results.count { it.isStationary }
                         .toFloat() / results.size) * 100f else 0f
 
@@ -255,8 +264,8 @@ class VelocityCalibrationTests {
                 )
                 val results = runTickLoop(events, fusion)
                 val speeds = results.map { it.speedMs }
-                val maxKmh = (speeds.maxOrNull() ?: 0f) * 3.6f
-                val avgKmh = if (speeds.isNotEmpty()) speeds.average().toFloat() * 3.6f else 0f
+                val maxKmh = (speeds.maxOrNull() ?: 0f) * MS_TO_KMH
+                val avgKmh = if (speeds.isNotEmpty()) speeds.average().toFloat() * MS_TO_KMH else 0f
                 val zupt = if (results.isNotEmpty()) (results.count { it.isStationary }
                     .toFloat() / results.size) * 100f else 0f
 
@@ -284,13 +293,13 @@ class VelocityCalibrationTests {
         val segmentResults = analyzeSegments(events, VelocityFusion(kalmanQ = 0.3f, kalmanR = 0.3f))
         resultsFile.appendText("Stationary (GPS < 1 m/s):\n")
         resultsFile.appendText("  - Duration: %.1f%% of trace\n".format(segmentResults.stationaryPercent))
-        resultsFile.appendText("  - Filter Avg Speed: %.2f km/h\n".format(segmentResults.stationaryFilterAvg * 3.6f))
+        resultsFile.appendText("  - Filter Avg Speed: %.2f km/h\n".format(segmentResults.stationaryFilterAvg * MS_TO_KMH))
         resultsFile.appendText("  - ZUPT Activation: %.1f%%\n\n".format(segmentResults.stationaryZuptPercent))
 
         resultsFile.appendText("Moving (GPS >= 1 m/s):\n")
         resultsFile.appendText("  - Duration: %.1f%% of trace\n".format(segmentResults.movingPercent))
-        resultsFile.appendText("  - GPS Avg Speed: %.2f km/h\n".format(segmentResults.movingGpsAvg * 3.6f))
-        resultsFile.appendText("  - Filter Avg Speed: %.2f km/h\n".format(segmentResults.movingFilterAvg * 3.6f))
+        resultsFile.appendText("  - GPS Avg Speed: %.2f km/h\n".format(segmentResults.movingGpsAvg * MS_TO_KMH))
+        resultsFile.appendText("  - Filter Avg Speed: %.2f km/h\n".format(segmentResults.movingFilterAvg * MS_TO_KMH))
         resultsFile.appendText("  - Speed Ratio (Filter/GPS): %.2f\n".format(segmentResults.speedRatio))
         resultsFile.appendText("  - ZUPT False Positive Rate: %.1f%%\n\n".format(segmentResults.movingZuptFalsePosPercent))
 
@@ -309,41 +318,22 @@ class VelocityCalibrationTests {
         var latestGps: RawEvent.Gps? = null
         val imuSamplesInWindow = mutableListOf<ImuSample>()
 
-        val tickIntervalNs = 100_000_000L
-        var nextTickNs = lastTickTimeNs + tickIntervalNs
+        var nextTickNs = lastTickTimeNs + TICK_INTERVAL_NS
 
         for (event in events) {
             when (event) {
-                is RawEvent.Imu -> {
-                    CoordinateTransformer.getRotationMatrixFromVector(
-                        event.rotationVector,
-                        rotationMatrix
-                    )
-                    val worldAccel = CoordinateTransformer.transform(event.accel, rotationMatrix)
-                    imuSamplesInWindow.add(ImuSample(worldAccel, event.timestampNs))
-                }
-
+                is RawEvent.Imu -> processImuEvent(event, imuSamplesInWindow, rotationMatrix)
                 is RawEvent.Gps -> latestGps = event
                 else -> {}
             }
 
             while (event.timestampNs >= nextTickNs) {
                 val dt = (nextTickNs - lastTickTimeNs) / 1_000_000_000f
-                val imuWindow = ImuWindow.fromSamples(imuSamplesInWindow)
-                val gpsObs = latestGps?.let {
-                    GpsObservation(
-                        speedMs = it.speedMs,
-                        bearingRad = it.bearing * (PI.toFloat() / 180f),
-                        accuracyM = it.accuracyM,
-                        ageMs = (nextTickNs - it.timestampNs) / 1_000_000L
-                    )
-                }
-
-                val result = fusion.tick(dt, imuWindow, gpsObs)
-                output.add(TickResult(result.speedMs, result.isStationary))
+                val (speed, isStationary) = runFusionTick(nextTickNs, imuSamplesInWindow, latestGps, fusion)
+                output.add(TickResult(speed, isStationary))
 
                 lastTickTimeNs = nextTickNs
-                nextTickNs += tickIntervalNs
+                nextTickNs += TICK_INTERVAL_NS
                 imuSamplesInWindow.clear()
             }
         }
@@ -357,21 +347,12 @@ class VelocityCalibrationTests {
         val rotationMatrix = FloatArray(9)
         var latestGps: RawEvent.Gps? = null
         val imuSamplesInWindow = mutableListOf<ImuSample>()
-        val tickIntervalNs = 100_000_000L
-        var nextTickNs = lastTickTimeNs + tickIntervalNs
+        var nextTickNs = lastTickTimeNs + TICK_INTERVAL_NS
         var tickCount = 0
 
         for (event in events) {
             when (event) {
-                is RawEvent.Imu -> {
-                    CoordinateTransformer.getRotationMatrixFromVector(
-                        event.rotationVector,
-                        rotationMatrix
-                    )
-                    val worldAccel = CoordinateTransformer.transform(event.accel, rotationMatrix)
-                    imuSamplesInWindow.add(ImuSample(worldAccel, event.timestampNs))
-                }
-
+                is RawEvent.Imu -> processImuEvent(event, imuSamplesInWindow, rotationMatrix)
                 is RawEvent.Gps -> latestGps = event
                 else -> {}
             }
@@ -379,14 +360,7 @@ class VelocityCalibrationTests {
             while (event.timestampNs >= nextTickNs && tickCount < 20) {
                 val sampleCount = imuSamplesInWindow.size
                 val imuWindow = ImuWindow.fromSamples(imuSamplesInWindow)
-                val gpsObs = latestGps?.let {
-                    GpsObservation(
-                        speedMs = it.speedMs,
-                        bearingRad = it.bearing * (PI.toFloat() / 180f),
-                        accuracyM = it.accuracyM,
-                        ageMs = (nextTickNs - it.timestampNs) / 1_000_000L
-                    )
-                }
+                val gpsObs = latestGps?.let { createGpsObservation(nextTickNs, it) }
 
                 val result = fusion.tick(0.1f, imuWindow, gpsObs)
 
@@ -408,19 +382,61 @@ class VelocityCalibrationTests {
                 )
 
                 lastTickTimeNs = nextTickNs
-                nextTickNs += tickIntervalNs
+                nextTickNs += TICK_INTERVAL_NS
                 imuSamplesInWindow.clear()
                 tickCount++
             }
         }
     }
 
+
+
+    private data class GpsTickStats(
+        val totalTicks: Int,
+        val freshGpsTicks: Int,
+        val staleGpsTicks: Int,
+        val minAgeMs: Float,
+        val maxAgeMs: Float,
+        val avgAgeMs: Float,
+        val minSpeedMs: Float,
+        val maxSpeedMs: Float,
+        val avgSpeedMs: Float
+    )
+
+// Helper functions to reduce duplication across experiments
+
+    private fun createGpsObservation(tickTimestampNs: Long, gpsEvent: RawEvent.Gps): GpsObservation {
+        return GpsObservation(
+            speedMs = gpsEvent.speedMs,
+            bearingRad = gpsEvent.bearing * (PI.toFloat() / 180f),
+            accuracyM = gpsEvent.accuracyM,
+            ageMs = (tickTimestampNs - gpsEvent.timestampNs) / 1_000_000L
+        )
+    }
+
+    private fun processImuEvent(event: RawEvent.Imu, imuSamples: MutableList<ImuSample>, rotationMatrix: FloatArray) {
+        CoordinateTransformer.getRotationMatrixFromVector(event.rotationVector, rotationMatrix)
+        val worldAccel = CoordinateTransformer.transform(event.accel, rotationMatrix)
+        imuSamples.add(ImuSample(worldAccel, event.timestampNs))
+    }
+
+    private fun runFusionTick(
+        tickTimestampNs: Long,
+        imuSamples: List<ImuSample>,
+        latestGps: RawEvent.Gps?,
+        fusion: VelocityFusion
+    ): Pair<Float, Boolean> {
+        val imuWindow = ImuWindow.fromSamples(imuSamples)
+        val gpsObs = latestGps?.let { createGpsObservation(tickTimestampNs, it) }
+        val result = fusion.tick(0.1f, imuWindow, gpsObs)
+        return Pair(result.speedMs, result.isStationary)
+    }
+
     private fun analyzeGpsTicks(events: List<RawEvent>): GpsTickStats {
         if (events.isEmpty()) return GpsTickStats(0, 0, 0, 0f, 0f, 0f, 0f, 0f, 0f)
 
         val firstTs = events.first().timestampNs
-        val tickIntervalNs = 100_000_000L
-        var nextTickNs = firstTs + tickIntervalNs
+        var nextTickNs = firstTs + TICK_INTERVAL_NS
 
         var latestGps: RawEvent.Gps? = null
         var totalTicks = 0
@@ -450,7 +466,7 @@ class VelocityCalibrationTests {
                     }
                 }
 
-                nextTickNs += tickIntervalNs
+                nextTickNs += TICK_INTERVAL_NS
             }
         }
 
@@ -490,8 +506,7 @@ class VelocityCalibrationTests {
         if (events.isEmpty()) return SegmentStats(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
 
         val firstTs = events.first().timestampNs
-        val tickIntervalNs = 100_000_000L
-        var nextTickNs = firstTs + tickIntervalNs
+        var nextTickNs = firstTs + TICK_INTERVAL_NS
 
         var latestGps: RawEvent.Gps? = null
         val imuSamplesInWindow = mutableListOf<ImuSample>()
@@ -533,18 +548,18 @@ class VelocityCalibrationTests {
                 val gpsSpeed = gpsObs?.speedMs ?: -1f
 
                 // Segment based on GPS speed (ground truth)
-                if (gpsSpeed >= 0f && gpsSpeed < 1.0f) {
+                if (gpsSpeed >= 0f && gpsSpeed < STATIONARY_SPEED_THRESHOLD_MS) {
                     // Stationary
                     stationarySpeeds.add(result.speedMs)
                     stationaryZuptCount.add(result.isStationary)
-                } else if (gpsSpeed >= 1.0f) {
+                } else if (gpsSpeed >= STATIONARY_SPEED_THRESHOLD_MS) {
                     // Moving
                     movingGpsSpeeds.add(gpsSpeed)
                     movingFilterSpeeds.add(result.speedMs)
                     movingZuptCount.add(result.isStationary)
                 }
 
-                nextTickNs += tickIntervalNs
+                nextTickNs += TICK_INTERVAL_NS
                 imuSamplesInWindow.clear()
             }
         }
