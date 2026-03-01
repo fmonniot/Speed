@@ -142,6 +142,25 @@ fun SessionDetailContent(
                 
                 // 4. Session Info (Metadata)
                 Text("Session Info", style = MaterialTheme.typography.titleMedium)
+
+                val timeInfo = remember(session.startTimeMs, session.endTimeMs) {
+                    formatSessionTime(session.startTimeMs, session.endTimeMs)
+                }
+
+                ListItem(
+                    headlineContent = { Text("Time") },
+                    trailingContent = {
+                        Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                            Text(timeInfo.primary, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = timeInfo.secondary,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                )
+
                 ListItem(headlineContent = { Text("Data Points") }, trailingContent = { Text("${points.size}") })
                 ListItem(headlineContent = { Text("Duration") }, trailingContent = { 
                     val duration = if (points.size >= 2) (points.last().elapsedRealtimeNs - points.first().elapsedRealtimeNs) / 1_000_000_000 else 0

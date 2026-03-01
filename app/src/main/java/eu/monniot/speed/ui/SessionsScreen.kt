@@ -15,8 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.viewmodel.RaceViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
@@ -88,33 +86,14 @@ fun SessionItem(
     onSessionClick: (String) -> Unit,
     onDelete: (String) -> Unit
 ) {
-    val dateDisplay = remember(session.startTimeMs, session.endTimeMs) {
-        val startCal = Calendar.getInstance().apply { timeInMillis = session.startTimeMs }
-        val endCal = session.endTimeMs?.let { endTime ->
-            Calendar.getInstance().apply { timeInMillis = endTime }
-        }
-
-        val dayFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-        val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-
-        val startDateStr = dayFormat.format(startCal.time)
-        val startTimeStr = timeFormat.format(startCal.time)
-
-        if (endCal == null) {
-            "$startDateStr • $startTimeStr"
-        } else {
-            val isSameDay = startCal.get(Calendar.YEAR) == endCal.get(Calendar.YEAR) &&
-                    startCal.get(Calendar.DAY_OF_YEAR) == endCal.get(Calendar.DAY_OF_YEAR)
-
-            val endTimeStr = timeFormat.format(endCal.time)
-
-            if (isSameDay) {
-                "$startDateStr • $startTimeStr - $endTimeStr"
-            } else {
-                val endDateStr = dayFormat.format(endCal.time)
-                "$startDateStr $startTimeStr - $endDateStr $endTimeStr"
-            }
-        }
+    val timeInfo = remember(session.startTimeMs, session.endTimeMs) {
+        formatSessionTime(session.startTimeMs, session.endTimeMs)
+    }
+    
+    val dateDisplay = if (session.endTimeMs == null) {
+        "${timeInfo.primary} • ${timeInfo.secondary}"
+    } else {
+        "${timeInfo.primary} • ${timeInfo.secondary}"
     }
 
     val durationDisplay = remember(session.startTimeMs, session.endTimeMs) {
