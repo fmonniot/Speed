@@ -9,6 +9,24 @@ data class SessionTimeInfo(
     val secondary: String
 )
 
+// A ride's display name: the user-given name when set, else a weekday-derived label (e.g.
+// "Monday ride"). Used by the Ride-home last-ride card, the Trips rows, and the Summary title.
+fun sessionDisplayName(name: String?, startTimeMs: Long): String =
+    if (!name.isNullOrBlank()) {
+        name
+    } else {
+        SimpleDateFormat("EEEE 'ride'", Locale.getDefault()).format(startTimeMs)
+    }
+
+// True when the timestamp falls in the current calendar week. Used by the Ride-home
+// "This week" count and the Trips "This week" filter. Real aggregate queries arrive in E3.
+fun isThisWeek(timeMs: Long): Boolean {
+    val now = Calendar.getInstance()
+    val then = Calendar.getInstance().apply { timeInMillis = timeMs }
+    return now.get(Calendar.YEAR) == then.get(Calendar.YEAR) &&
+        now.get(Calendar.WEEK_OF_YEAR) == then.get(Calendar.WEEK_OF_YEAR)
+}
+
 fun formatSessionTime(startTimeMs: Long, endTimeMs: Long?): SessionTimeInfo {
     val startCal = Calendar.getInstance().apply { timeInMillis = startTimeMs }
     val endCal = endTimeMs?.let { endTime ->

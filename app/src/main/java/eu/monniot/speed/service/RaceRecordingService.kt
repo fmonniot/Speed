@@ -36,8 +36,12 @@ data class ServiceState(
     val currentSpeedMs: Float = 0f,
     val currentAccelMs2: Float = 0f,
     val currentG: Float = 0f,
+    // E1: live lean (+ = right) and lateral G (+ = toward rider's right) for the Live HUD.
+    val currentLeanDeg: Float = 0f,
+    val currentLateralG: Float = 0f,
     val currentAccuracyM: Float? = null,
     // Battery metrics
+    val batteryPercent: Int? = null,
     val batteryWattage: Float? = null,
     val batteryCapacityMah: Int? = null,
     val batteryTimeRemainingMs: Long? = null
@@ -53,6 +57,10 @@ class RaceRecordingService : LifecycleService() {
     private var rawSink: RawSensorSink? = null
     
     private var wakeLock: PowerManager.WakeLock? = null
+
+    // Auto-pause (§4.9): when on, stationary points are not persisted so the recorded track and
+    // stats reflect moving time only. Mirrored from the setting flow; read on the fusion thread.
+    @Volatile private var autoPauseEnabled = false
 
     private var batteryVoltageMv: Int = 0
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -71,6 +79,10 @@ class RaceRecordingService : LifecycleService() {
         const val CHANNEL_ID = "race_recording"
         const val NOTIFICATION_ID = 1
 
+        // Below this fused speed (m/s) the rider is treated as stationary for auto-pause.
+        // Matches SessionStatsComputer's "moving" cutoff so distance/moving% stay consistent.
+        private const val AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5f
+
         private val _state = MutableStateFlow(ServiceState())
         val state: StateFlow<ServiceState> = _state.asStateFlow()
     }
@@ -83,8 +95,8 @@ class RaceRecordingService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        val dao = RaceDatabase.getDatabase(this).dataPointDao()
-        repository = RaceRepository(dao)
+        val db = RaceDatabase.getDatabase(this)
+        repository = RaceRepository(db.dataPointDao(), db.segmentDao())
         settingsRepository = SettingsRepository(this)
         
         // Initialize Raw Sink
@@ -115,27 +127,38 @@ class RaceRecordingService : LifecycleService() {
                             currentSpeedMs = point.derivedSpeedMs ?: 0f,
                             currentAccelMs2 = point.derivedAccelMs2 ?: 0f,
                             currentG = point.accelMagnitude / 9.81f,
+                            currentLeanDeg = point.leanAngleDeg ?: 0f,
+                            currentLateralG = point.lateralGz ?: 0f,
                             currentAccuracyM = point.gpsAccuracyM,
                             satellites = SatelliteInfo(point.satellitesUsed ?: 0, point.satellitesVisible ?: 0)
                         )
                     }
 
-                    // Save to DB and update recording stats if recording
+                    // Save to DB and update recording stats if recording. When auto-pause is on,
+                    // skip persisting points captured while stationary so the session pauses itself.
                     if (_state.value.isRecording) {
-                        repository.insertDataPoint(point)
-                        _state.update { 
-                            it.copy(
-                                latestPoint = point,
-                                pointCount = it.pointCount + 1,
-                                elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
-                            )
-                        }
-                        if (_state.value.pointCount % 10 == 0) {
-                            updateNotification(point)
+                        val stationary = (point.derivedSpeedMs ?: 0f) < AUTO_PAUSE_SPEED_THRESHOLD_MS
+                        if (!(autoPauseEnabled && stationary)) {
+                            repository.insertDataPoint(point)
+                            _state.update {
+                                it.copy(
+                                    latestPoint = point,
+                                    pointCount = it.pointCount + 1,
+                                    elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
+                                )
+                            }
+                            if (_state.value.pointCount % 10 == 0) {
+                                updateNotification(point)
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Keep the auto-pause flag in sync with the setting (read on the fusion thread above).
+        lifecycleScope.launch {
+            settingsRepository.autoPause.collect { autoPauseEnabled = it }
         }
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -181,6 +204,7 @@ class RaceRecordingService : LifecycleService() {
 
                 _state.update {
                     it.copy(
+                        batteryPercent = capacityPercent.takeIf { p -> p in 0..100 },
                         batteryWattage = wattage,
                         batteryCapacityMah = totalCapacityMah,
                         batteryTimeRemainingMs = timeRemainingMs
@@ -217,10 +241,16 @@ class RaceRecordingService : LifecycleService() {
     }
 
     private fun startSensors() {
-        gpsCollector.start()
-        imuCollector.start()
-        _state.update { it.copy(isSensorsEnabled = true) }
+        // startForeground must run promptly; read the rate settings and start the collectors on a
+        // coroutine (the collectors gate on _isActive, so a few ms of latency is harmless).
         startForeground(NOTIFICATION_ID, createNotification("Sensors active. This will drain your battery."))
+        lifecycleScope.launch {
+            val gpsHz = settingsRepository.gpsRateHz.first().coerceAtLeast(1)
+            val imuHz = settingsRepository.imuRateHz.first().coerceAtLeast(1)
+            gpsCollector.start(intervalMs = (1000L / gpsHz).coerceAtLeast(1L))
+            imuCollector.start(samplingPeriodUs = 1_000_000 / imuHz)
+            _state.update { it.copy(isSensorsEnabled = true) }
+        }
     }
 
     private fun stopSensors() {
@@ -292,8 +322,43 @@ class RaceRecordingService : LifecycleService() {
         lifecycleScope.launch {
             currentState.sessionId?.let { sid ->
                 val points = repository.getPointsForSession(sid)
-                val maxSpeed = points.maxByOrNull { it.gpsSpeedMs ?: 0f }?.gpsSpeedMs ?: 0f
-                repository.updateSession(Session(sid, currentState.sessionStartTimeMs, System.currentTimeMillis(), points.size, maxSpeed))
+                // E2/E3: compute and persist per-session aggregates at finalize.
+                val stats = eu.monniot.speed.domain.SessionStatsComputer.compute(points)
+                repository.updateSession(
+                    Session(
+                        sessionId = sid,
+                        startTimeMs = currentState.sessionStartTimeMs,
+                        endTimeMs = System.currentTimeMillis(),
+                        pointCount = points.size,
+                        maxSpeedMs = stats.maxSpeedMs,
+                        distanceM = stats.distanceM,
+                        avgSpeedMs = stats.avgSpeedMs,
+                        maxLateralG = stats.maxLateralG,
+                        maxLeanDeg = stats.maxLeanDeg,
+                        hardBrakeG = stats.hardBrakeG,
+                        movingPercent = stats.movingPercent,
+                    )
+                )
+                // E5: match this ride's track against defined segments and record attempts.
+                runCatching {
+                    val segments = repository.getSegmentsForMatching()
+                    if (segments.isNotEmpty()) {
+                        val now = System.currentTimeMillis()
+                        eu.monniot.speed.domain.SegmentMatcher.match(points, segments).forEach { m ->
+                            repository.insertAttempt(
+                                SegmentAttempt(
+                                    segmentId = m.segmentId,
+                                    sessionId = sid,
+                                    elapsedTimeMs = m.elapsedTimeMs,
+                                    dateMs = now,
+                                    maxSpeedMs = m.maxSpeedMs,
+                                    maxLateralG = m.maxLateralG,
+                                    maxLeanDeg = m.maxLeanDeg,
+                                )
+                            )
+                        }
+                    }
+                }
             }
             _state.update { 
                 it.copy(

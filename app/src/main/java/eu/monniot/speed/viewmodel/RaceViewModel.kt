@@ -7,8 +7,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import eu.monniot.speed.data.RaceDatabase
 import eu.monniot.speed.data.RaceRepository
+import eu.monniot.speed.data.Segment
+import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.SessionSummary
+import eu.monniot.speed.domain.SessionStats
+import eu.monniot.speed.domain.SessionStatsComputer
+import eu.monniot.speed.export.ExportManager
+import eu.monniot.speed.export.ExportFmt
+import eu.monniot.speed.export.ExportOptions
 import eu.monniot.speed.data.SettingsRepository
+import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
 import eu.monniot.speed.service.ServiceState
 import kotlinx.coroutines.flow.Flow
@@ -41,12 +49,31 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     val recordRawTraces: StateFlow<Boolean> = settingsRepository.recordRawTraces
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // Redesign settings (C1) exposed for screens (C2/C3, D1/D2).
+    val units: StateFlow<Units> = settingsRepository.units
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Units.METRIC)
+
+    val darkTheme: StateFlow<Boolean> = settingsRepository.darkTheme
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val gpsRateHz: StateFlow<Int> = settingsRepository.gpsRateHz
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_GPS_RATE_HZ)
+
+    val imuRateHz: StateFlow<Int> = settingsRepository.imuRateHz
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_IMU_RATE_HZ)
+
+    val autoPause: StateFlow<Boolean> = settingsRepository.autoPause
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
 
+    private val _isExporting = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isExporting: StateFlow<Boolean> = _isExporting
+
     init {
-        val dao = RaceDatabase.getDatabase(application).dataPointDao()
-        repository = RaceRepository(dao)
+        val db = RaceDatabase.getDatabase(application)
+        repository = RaceRepository(db.dataPointDao(), db.segmentDao())
         sessions = repository.sessionSummaries
         
         // Auto-start sensors if the setting is enabled
@@ -68,6 +95,13 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.setRecordRawTraces(enabled)
         }
     }
+
+    // Redesign settings setters (C1) — used by the D9 Settings screen.
+    fun setGpsRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setGpsRateHz(hz) }
+    fun setImuRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setImuRateHz(hz) }
+    fun setAutoPause(enabled: Boolean) = viewModelScope.launch { settingsRepository.setAutoPause(enabled) }
+    fun setUnits(units: Units) = viewModelScope.launch { settingsRepository.setUnits(units) }
+    fun setDarkTheme(enabled: Boolean) = viewModelScope.launch { settingsRepository.setDarkTheme(enabled) }
 
     private fun startSensors() {
         val context = getApplication<Application>().applicationContext
@@ -156,13 +190,100 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    // F5: bulk export of the given trips honoring format + include toggles, written as a ZIP and
+    // shared. Maps the UI's selection (a list of sessionIds + ExportOptions) through ExportManager.
+    fun exportTrips(sessionIds: List<String>, options: ExportOptions) {
+        if (_isExporting.value) return
+        viewModelScope.launch {
+            _isExporting.value = true
+            try {
+                val context = getApplication<Application>().applicationContext
+                val sessions = sessionIds.mapNotNull { repository.getSession(it) }
+                val zipFile = File(context.cacheDir, "speed_export_${System.currentTimeMillis()}.zip")
+                FileOutputStream(zipFile).use { out ->
+                    ExportManager.exportZip(sessions, repository::getPointsForSession, options, out)
+                }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", zipFile)
+                _exportUri.emit(uri)
+            } finally {
+                _isExporting.value = false
+            }
+        }
+    }
+
     suspend fun getPointsForSession(sessionId: String) = repository.getPointsForSession(sessionId)
 
     suspend fun getSession(sessionId: String) = repository.getSession(sessionId)
 
+    // E2: per-session metrics computed on demand from the session's points.
+    suspend fun getSessionStats(sessionId: String): SessionStats =
+        SessionStatsComputer.compute(repository.getPointsForSession(sessionId))
+
+    // E4/D7/D8: segments.
+    val segmentListItems: StateFlow<List<SegmentListItem>> = repository.segmentListItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    suspend fun getSegment(segmentId: String) = repository.getSegment(segmentId)
+
+    suspend fun getPbCountForSession(sessionId: String) = repository.getPbCountForSession(sessionId)
+
+    // E6: create a segment from a sub-track picked off an existing ride.
+    fun createSegment(name: String, points: List<eu.monniot.speed.data.DataPoint>) {
+        viewModelScope.launch {
+            val coords = points.mapNotNull { p ->
+                val lat = p.latitude; val lon = p.longitude
+                if (lat != null && lon != null) lat to lon else null
+            }
+            if (coords.size < 2) return@launch
+            var dist = 0f
+            for (i in 1 until coords.size) {
+                dist += haversineMeters(coords[i - 1], coords[i]).toFloat()
+            }
+            repository.upsertSegment(
+                Segment(
+                    segmentId = java.util.UUID.randomUUID().toString(),
+                    name = name,
+                    distanceM = dist,
+                    pathPolyline = eu.monniot.speed.data.encodePath(coords),
+                    createdAtMs = System.currentTimeMillis(),
+                )
+            )
+        }
+    }
+
+    private fun haversineMeters(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(b.first - a.first)
+        val dLon = Math.toRadians(b.second - a.second)
+        val s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(a.first)) * Math.cos(Math.toRadians(b.first)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return r * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s))
+    }
+
+    fun getAttemptsForSegment(segmentId: String) = repository.getAttemptsForSegment(segmentId)
+
+    fun deleteSegment(segmentId: String) {
+        viewModelScope.launch { repository.deleteSegment(segmentId) }
+    }
+
+    fun setSegmentGoal(segment: Segment, goal: Boolean) {
+        viewModelScope.launch { repository.updateSegment(segment.copy(isGoal = goal)) }
+    }
+
+    fun renameSegment(segment: Segment, name: String) {
+        viewModelScope.launch { repository.updateSegment(segment.copy(name = name)) }
+    }
+
     fun updateSessionNotes(session: Session, notes: String) {
         viewModelScope.launch {
             repository.updateSession(session.copy(notes = notes))
+        }
+    }
+
+    fun renameSession(session: Session, name: String) {
+        viewModelScope.launch {
+            repository.updateSession(session.copy(name = name))
         }
     }
 }

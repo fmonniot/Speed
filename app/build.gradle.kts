@@ -65,7 +65,6 @@ dependencies {
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.preference)
-    implementation(libs.material)
     ksp(libs.room.compiler)
 
     implementation(libs.play.services.location)
@@ -75,11 +74,15 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
 
+    // F1: MapLibre (open-source, no API key) for the ride-trace map.
+    implementation(libs.maplibre.android.sdk)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
-    
+    testImplementation(libs.robolectric)
+
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.test.runner)

@@ -55,7 +55,7 @@ class GpsCollector(
     }
 
     @SuppressLint("MissingPermission")
-    fun start() {
+    fun start(intervalMs: Long = 100L) {
         if (_isActive.value) return
 
         // We do not set setMaxUpdateDelayMillis because it, for some reason, results in GPS
@@ -63,8 +63,10 @@ class GpsCollector(
         // 1Hz refresh rate of the GNSS receiver.
         // On my phone (Flip 7), leaving it out bring down the number of updates to 1 to 2
         // location update per second.
-        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 100L)
-            .setMinUpdateIntervalMillis(50L)
+        // intervalMs is derived from the GPS-rate setting (1000/Hz); the fastest interval is
+        // half of it so the receiver can deliver early when it has a fix sooner.
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
+            .setMinUpdateIntervalMillis((intervalMs / 2).coerceAtLeast(1L))
             .build()
 
         client.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())

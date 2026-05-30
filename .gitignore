@@ -1,12 +1,5 @@
 *.iml
 .gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
 /build
 /captures
@@ -19,3 +12,5 @@ local.properties
 # Sorry open source community, not sharing those :)
 app/src/test/resources/raw_traces/*
 app/calibration_reports/
+.claude/
+.idea/

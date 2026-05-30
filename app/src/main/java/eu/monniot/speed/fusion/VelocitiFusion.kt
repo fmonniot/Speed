@@ -67,7 +67,9 @@ data class ImuWindow(
     val accelX: Float,
     val accelY: Float,
     val accelZ: Float,
-    val variance: Float
+    val variance: Float,
+    // E1: mean lean angle over the window (+ = leaning right), carried through from ImuSample.
+    val leanAngleDeg: Float = 0f
 ) {
     companion object {
         /**
@@ -80,6 +82,7 @@ data class ImuWindow(
             val ax = samples.map { it.accelWorld[0] }.average().toFloat()
             val ay = samples.map { it.accelWorld[1] }.average().toFloat()
             val az = samples.map { it.accelWorld[2] }.average().toFloat()
+            val lean = samples.map { it.leanAngleDeg }.average().toFloat()
 
             // Calculate variance for ZUPT. 
             // We use the magnitude of the acceleration vector to detect overall stillness.
@@ -89,7 +92,7 @@ data class ImuWindow(
             val avgMag = magnitudes.average().toFloat()
             val variance = magnitudes.map { m -> (m - avgMag) * (m - avgMag) }.average().toFloat()
 
-            return ImuWindow(ax, ay, az, variance)
+            return ImuWindow(ax, ay, az, variance, lean)
         }
     }
 

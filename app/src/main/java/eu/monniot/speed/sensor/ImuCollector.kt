@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class ImuSample(
     val accelWorld: FloatArray, // x, y, z in world frame
-    val timestampNs: Long
+    val timestampNs: Long,
+    // E1: side-to-side lean derived from the current rotation matrix (+ = leaning right).
+    val leanAngleDeg: Float = 0f
 )
 
 class ImuCollector(
@@ -35,14 +37,16 @@ class ImuCollector(
     private var rotationMatrix = FloatArray(9)
     private var lastRotationVector: FloatArray? = null
 
-    fun start() {
+    // samplingPeriodUs is either a SensorManager.SENSOR_DELAY_* constant or an explicit microsecond
+    // period derived from the IMU-rate setting (1_000_000 / Hz). The platform treats it as a hint.
+    fun start(samplingPeriodUs: Int = SensorManager.SENSOR_DELAY_GAME) {
         if (_isActive.value) return
-        
+
         val accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         val rotVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
-        sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
-        sensorManager.registerListener(this, rotVec, SensorManager.SENSOR_DELAY_GAME)
+        sensorManager.registerListener(this, accel, samplingPeriodUs)
+        sensorManager.registerListener(this, rotVec, samplingPeriodUs)
         _isActive.value = true
     }
 
@@ -62,8 +66,10 @@ class ImuCollector(
             Sensor.TYPE_LINEAR_ACCELERATION -> {
                 if (lastRotationVector != null) {
                     val worldAccel = CoordinateTransformer.transform(event.values, rotationMatrix)
-                    
-                    _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp))
+                    // E1: derive lean from the current device→world rotation matrix.
+                    val lean = eu.monniot.speed.fusion.MotionMath.leanAngleDeg(rotationMatrix)
+
+                    _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp, lean))
                     
                     // Pipe raw data to sink if available
                     rawSink?.onImuEvent(event.values.clone(), lastRotationVector!!, event.timestamp)

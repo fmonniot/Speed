@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Speed — App Storyboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+  * { box-sizing: border-box; }
+  #root { width: 100%; height: 100vh; }
+  .material-symbols-rounded { font-family: 'Material Symbols Rounded'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="screen-frame.jsx"></script>
+<script type="text/babel" src="material3.jsx"></script>
+
+<script type="text/babel">
+const { DesignCanvas, DCSection, DCArtboard, M3Theme, M3_GREEN, M3_GREEN_DARK } = window;
+const { M3Idle, M3Live, M3Summary, M3Detail, M3History, M3Segment, M3SegmentList, M3Settings, M3Stats, M3Export } = window;
+
+const W = 320, SH = 680;
+const CAP = 28;                 // caption strip height
+const H = CAP + SH + CAP + SH;  // artboard = light + dark stacked
+
+// Four activity-driven flows: each section answers "what is the rider doing?"
+const RECORD = [
+  { id: 'idle', label: '01 · Ready / Home', Comp: M3Idle },
+  { id: 'live', label: '02 · Live HUD', Comp: M3Live },
+  { id: 'summary', label: '03 · Ride summary', Comp: M3Summary },
+];
+const REVISIT = [
+  { id: 'history', label: '01 · Trips list', Comp: M3History },
+  { id: 'detail', label: '02 · Trace / detail', Comp: M3Detail },
+];
+const STATS = [
+  { id: 'stats',       label: '01 · Overview',      Comp: M3Stats },
+  { id: 'segmentlist', label: '02 · Segments list',  Comp: M3SegmentList },
+  { id: 'segment',     label: '03 · Segment detail', Comp: M3Segment },
+];
+const DATA = [
+  { id: 'settings', label: '01 · Settings', Comp: M3Settings },
+  { id: 'export', label: '02 · Export sheet', Comp: M3Export },
+];
+
+// Caption strip above each screen
+function Cap({ dark, children }) {
+  return (
+    <div style={{
+      height: CAP, display: 'flex', alignItems: 'center', gap: 6, padding: '0 2px',
+      fontFamily: 'JetBrains Mono, monospace', fontSize: 10, letterSpacing: '0.18em',
+      textTransform: 'uppercase', color: 'rgba(10,10,10,0.45)',
+    }}>
+      <span style={{ width: 8, height: 8, borderRadius: 8, background: dark ? '#10140f' : '#bcf0b4', border: '1px solid rgba(10,10,10,0.25)' }} />
+      {children}
+    </div>
+  );
+}
+
+// One screen, light theme stacked directly above dark theme.
+function LightDark({ Comp }) {
+  return (
+    <div style={{ width: W, display: 'flex', flexDirection: 'column', background: '#eceae5' }}>
+      <Cap dark={false}>Light</Cap>
+      <M3Theme scheme={M3_GREEN}><Comp /></M3Theme>
+      <Cap dark={true}>Dark</Cap>
+      <M3Theme scheme={M3_GREEN_DARK}><Comp /></M3Theme>
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <DCArtboard id="about" label="Read me" width={300} height={680}>
+      <div style={{ width: 300, height: 680, background: '#f7fbf1', color: '#181d17', padding: '34px 26px', fontFamily: '"Roboto Flex", system-ui, sans-serif', display: 'flex', flexDirection: 'column', borderRight: '1px solid #c1c9bd' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: '#3b6939', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: 26, color: '#fff', fontVariationSettings: "'FILL' 1" }}>two_wheeler</span>
+        </div>
+        <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em', lineHeight: 0.95, marginTop: 18 }}>
+          Speed
+        </div>
+        <div style={{ fontSize: 13, color: '#424940', marginTop: 10, lineHeight: 1.6 }}>
+          Android recorder for speed, acceleration & GPS at 100&nbsp;ms precision — built to answer the questions you have after a ride.
+        </div>
+        <div style={{ height: 1, background: '#c1c9bd', margin: '22px 0' }} />
+        <div style={{ fontSize: 11, letterSpacing: '0.16em', color: '#3b6939', fontWeight: 700 }}>FOUR ACTIVITIES</div>
+        <div style={{ fontSize: 12, color: '#424940', marginTop: 10, lineHeight: 1.6 }}>
+          Organised by what the rider is trying to do — record, revisit a ride, read the numbers, or get the raw data out. Material 3: tonal green surfaces, big rounded shapes, bottom nav, Expressive touches like the wavy progress line.
+        </div>
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[
+            ['Record a ride', 'Ready → Live HUD → Summary'],
+            ['Open a ride', 'Trips list → trace & detail'],
+            ['See statistics', 'Overview → segment records'],
+            ['Tune & export', 'Settings → raw data export'],
+          ].map(([n, d]) => (
+            <div key={n} style={{ background: '#ebefe5', borderRadius: 16, padding: '12px 14px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{n}</div>
+              <div style={{ fontSize: 11, color: '#424940', marginTop: 2 }}>{d}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ fontSize: 11, color: '#72796f', lineHeight: 1.6 }}>
+          Static storyboard — features locked, no interactivity. Double-click any screen to open it fullscreen.
+        </div>
+      </div>
+    </DCArtboard>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="intro" title="Speed · Material 3" subtitle="Motorcycle data recorder — green seed, light & dark">
+        {Legend()}
+      </DCSection>
+
+      <DCSection id="record" title="1 · Record a ride" subtitle="Heading out and want to capture it · Ready → Live HUD → Summary · light above, dark below">
+        {RECORD.map(({ id, label, Comp }) => (
+          <DCArtboard key={id} id={id} label={label} width={W} height={H}>
+            <LightDark Comp={Comp} />
+          </DCArtboard>
+        ))}
+      </DCSection>
+
+      <DCSection id="revisit" title="2 · Open a specific ride" subtitle="Find one ride and study it in depth · Trips → trace · light above, dark below">
+        {REVISIT.map(({ id, label, Comp }) => (
+          <DCArtboard key={id} id={id} label={label} width={W} height={H}>
+            <LightDark Comp={Comp} />
+          </DCArtboard>
+        ))}
+      </DCSection>
+
+      <DCSection id="stats" title="3 · See your statistics" subtitle="Zoom out to trends & records · Overview → segment · light above, dark below">
+        {STATS.map(({ id, label, Comp }) => (
+          <DCArtboard key={id} id={id} label={label} width={W} height={H}>
+            <LightDark Comp={Comp} />
+          </DCArtboard>
+        ))}
+      </DCSection>
+
+      <DCSection id="data" title="4 · Tune & export your data" subtitle="New flow — own the raw 100 ms recording · Settings → export · light above, dark below">
+        {DATA.map(({ id, label, Comp }) => (
+          <DCArtboard key={id} id={id} label={label} width={W} height={H}>
+            <LightDark Comp={Comp} />
+          </DCArtboard>
+        ))}
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
