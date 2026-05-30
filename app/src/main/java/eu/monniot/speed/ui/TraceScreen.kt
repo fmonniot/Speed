@@ -20,6 +20,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,7 @@ fun TraceScreen(
     onBack: () -> Unit,
     onDownload: () -> Unit,     // exports just this ride (CSV today)
     onOpenMap: () -> Unit = {}, // opens the full-screen interactive map (F2)
+    focusPeak: Boolean = false, // seed the playhead at the top-speed moment (§4.3 hero → Trace)
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
@@ -65,6 +67,13 @@ fun TraceScreen(
     // Derived series — computed once and shared between charts + header readouts.
     val speedSeries: List<Float> = remember(points) {
         points.map { it.derivedSpeedMs ?: it.gpsSpeedMs ?: 0f }
+    }
+
+    // When opened from the Summary top-speed hero, park the playhead on the fastest sample.
+    LaunchedEffect(speedSeries, focusPeak) {
+        if (focusPeak && speedSeries.isNotEmpty()) {
+            playheadIndex = speedSeries.indices.maxByOrNull { speedSeries[it] }
+        }
     }
     // E1 landed: plot the real signed lateral G (+ = rider's right). Points before E1 (older
     // recordings) have null lateralGz and contribute 0.
@@ -415,6 +424,7 @@ private fun TraceScreenPreview() {
             points = buildPreviewPoints(),
             onBack = {},
             onDownload = {},
+            focusPeak = true,
         )
     }
 }

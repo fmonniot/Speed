@@ -110,6 +110,8 @@ object Routes {
     // Navigating to bare "trips" (bottom nav) resolves to this pattern with the defaults.
     const val TRIPS_PATTERN = "trips?filter={filter}&from={from}&to={to}"
     const val TRACE = "trace/{sessionId}"
+    // Optional ?focus=peak makes the Trace open with its playhead on the top-speed moment (§4.3 #3).
+    const val TRACE_PATTERN = "trace/{sessionId}?focus={focus}"
     const val MAP = "map/{sessionId}"
     const val STATS = "stats"
     const val SEGMENTS = "segments"
@@ -120,6 +122,7 @@ object Routes {
 
     fun summary(id: String) = "summary/$id"
     fun trace(id: String) = "trace/$id"
+    fun traceFocusPeak(id: String) = "trace/$id?focus=peak"
     fun map(id: String) = "map/$id"
     fun segment(id: String) = "segment/$id"
     fun tripsThisWeek() = "trips?filter=week"
@@ -249,7 +252,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 segmentPbCount = segmentPbCount,
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
-                onOpenTrace = { navController.navigate(Routes.trace(sessionId)) },
+                onOpenTrace = { navController.navigate(Routes.traceFocusPeak(sessionId)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
             )
         }
@@ -280,12 +283,19 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
             )
         }
-        composable(Routes.TRACE) { backStackEntry ->
+        composable(
+            route = Routes.TRACE_PATTERN,
+            arguments = listOf(
+                navArgument("focus") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+            val focusPeak = backStackEntry.arguments?.getString("focus") == "peak"
             var points by remember(sessionId) { mutableStateOf<List<DataPoint>>(emptyList()) }
             LaunchedEffect(sessionId) { points = viewModel.getPointsForSession(sessionId) }
             TraceScreen(
                 points = points,
+                focusPeak = focusPeak,
                 onBack = { navController.popBackStack() },
                 onDownload = { viewModel.exportSession(sessionId) },
                 onOpenMap = { navController.navigate(Routes.map(sessionId)) },
