@@ -42,7 +42,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import eu.monniot.speed.ui.ExportFormat
 import eu.monniot.speed.ui.ExportScreen
+import eu.monniot.speed.ui.FullScreenMapScreen
 import eu.monniot.speed.ui.isThisWeek
 import eu.monniot.speed.ui.LiveHudScreen
 import eu.monniot.speed.ui.RideHomeScreen
@@ -106,6 +108,7 @@ object Routes {
     // Navigating to bare "trips" (bottom nav) resolves to this pattern with the default "all".
     const val TRIPS_PATTERN = "trips?filter={filter}"
     const val TRACE = "trace/{sessionId}"
+    const val MAP = "map/{sessionId}"
     const val STATS = "stats"
     const val SEGMENTS = "segments"
     const val SEGMENT = "segment/{segmentId}"
@@ -114,6 +117,7 @@ object Routes {
 
     fun summary(id: String) = "summary/$id"
     fun trace(id: String) = "trace/$id"
+    fun map(id: String) = "map/$id"
     fun segment(id: String) = "segment/$id"
     fun tripsThisWeek() = "trips?filter=week"
 
@@ -270,6 +274,19 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 points = points,
                 onBack = { navController.popBackStack() },
                 onDownload = { viewModel.exportSession(sessionId) },
+                onOpenMap = { navController.navigate(Routes.map(sessionId)) },
+            )
+        }
+        composable(Routes.MAP) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+            val units by viewModel.units.collectAsState()
+            var points by remember(sessionId) { mutableStateOf<List<DataPoint>>(emptyList()) }
+            LaunchedEffect(sessionId) { points = viewModel.getPointsForSession(sessionId) }
+            val topSpeedMs = points.maxOfOrNull { it.derivedSpeedMs ?: it.gpsSpeedMs ?: 0f } ?: 0f
+            FullScreenMapScreen(
+                points = points,
+                topSpeedLabel = eu.monniot.speed.util.UnitFormat.speed(topSpeedMs, units),
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.STATS) {
@@ -350,8 +367,21 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 fullDatasetBytes = totalPoints * 120L,
                 onBack = { navController.popBackStack() },
                 onHelp = {},
-                onExport = { _, _, _, _ ->
-                    // TODO(F5): run the real export pipeline honoring format/scope/include.
+                onExport = { format, includeGps, includeImu, includeLean ->
+                    val fmt = when (format) {
+                        ExportFormat.CSV -> eu.monniot.speed.export.ExportFmt.CSV
+                        ExportFormat.GPX -> eu.monniot.speed.export.ExportFmt.GPX
+                        ExportFormat.FIT -> eu.monniot.speed.export.ExportFmt.FIT
+                    }
+                    viewModel.exportTrips(
+                        sessionIds = sessions.map { it.sessionId },
+                        options = eu.monniot.speed.export.ExportOptions(
+                            format = fmt,
+                            includeGps = includeGps,
+                            includeImu = includeImu,
+                            includeLean = includeLean,
+                        ),
+                    )
                 },
             )
         }

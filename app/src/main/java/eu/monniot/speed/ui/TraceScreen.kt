@@ -54,6 +54,7 @@ fun TraceScreen(
     points: List<DataPoint>,    // ordered by time asc; may be empty
     onBack: () -> Unit,
     onDownload: () -> Unit,     // exports just this ride (CSV today)
+    onOpenMap: () -> Unit = {}, // opens the full-screen interactive map (F2)
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
@@ -99,7 +100,7 @@ fun TraceScreen(
                 points = points,
                 topSpeedLabel = UnitFormat.speed(topSpeedMs, units),
                 playheadIndex = playheadIndex,
-                onClick = {},
+                onClick = onOpenMap,
                 modifier = Modifier.fillMaxWidth(),
             )
 

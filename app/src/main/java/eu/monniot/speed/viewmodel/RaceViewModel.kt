@@ -12,6 +12,9 @@ import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.domain.SessionStats
 import eu.monniot.speed.domain.SessionStatsComputer
+import eu.monniot.speed.export.ExportManager
+import eu.monniot.speed.export.ExportFmt
+import eu.monniot.speed.export.ExportOptions
 import eu.monniot.speed.data.SettingsRepository
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
@@ -184,6 +187,21 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
+    // F5: bulk export of the given trips honoring format + include toggles, written as a ZIP and
+    // shared. Maps the UI's selection (a list of sessionIds + ExportOptions) through ExportManager.
+    fun exportTrips(sessionIds: List<String>, options: ExportOptions) {
+        viewModelScope.launch {
+            val context = getApplication<Application>().applicationContext
+            val sessions = sessionIds.mapNotNull { repository.getSession(it) }
+            val zipFile = File(context.cacheDir, "speed_export_${System.currentTimeMillis()}.zip")
+            FileOutputStream(zipFile).use { out ->
+                ExportManager.exportZip(sessions, repository::getPointsForSession, options, out)
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", zipFile)
+            _exportUri.emit(uri)
+        }
+    }
+
     suspend fun getPointsForSession(sessionId: String) = repository.getPointsForSession(sessionId)
 
     suspend fun getSession(sessionId: String) = repository.getSession(sessionId)

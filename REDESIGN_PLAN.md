@@ -47,8 +47,8 @@ feature real; G cleans up.
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
 - [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [x] D7 Segment list · [x] D8 Segment detail · [x] D9 Settings · [◐] D10 Export
-- [x] E1 Lean+lateral G · [x] E2 SessionStats · [ ] E3 Aggregates · [x] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
-- [x] F1 MapLibre · [ ] F2 Full-screen map · [◐] F3 GPX export · [◐] F4 FIT export · [ ] F5 Export scope/include
+- [x] E1 Lean+lateral G · [x] E2 SessionStats · [x] E3 Aggregates · [x] E4 Segments model · [x] E5 Segment matching · [ ] E6 Segment creation
+- [x] F1 MapLibre · [x] F2 Full-screen map · [x] F3 GPX export · [x] F4 FIT export · [◐] F5 Export scope/include
 - [ ] G1 Cleanup
 
 ---
@@ -575,7 +575,7 @@ derivedAccel/9.81, clamped ≤0), movingPercent (>0.5 m/s). Compute-on-load (no 
 the wave-4 backfill (alongside E3).
 
 ## E3. Aggregate queries
-**Status:** ☐ · **Depends on:** E2 · **Spec:** §4.1, §4.6
+**Status:** ☑ · **Depends on:** E2 · **Spec:** §4.1, §4.6
 
 Add DAO queries for: rides recorded in the current calendar week, lifetime cumulative distance, and
 range-scoped aggregates (top speed / max lean / max lateral G / longest ride and total distance for
@@ -585,9 +585,18 @@ comparable period). Feed D1's two summary cards and all of D6.
 **Key files:** `…/data/DataPointDao.kt` (or a new stats DAO), `…/data/RaceRepository.kt`, ViewModel.
 
 **Acceptance criteria:**
-- [ ] This-week count and lifetime distance available to D1.
-- [ ] Scoped records, scoped total distance, 6-month per-month series, and trend % available to D6.
-- [ ] Queries covered by unit/instrumented tests on seeded data.
+- [x] This-week count and lifetime distance available to D1 (`RideAggregates.countInRange`/`lifetimeDistanceM`).
+- [x] Scoped records, scoped total distance, 6-month per-month series, and trend % available to D6
+      (`RideAggregates.rangeStats`/`monthlyDistance`/`trendPercent`).
+- [x] Aggregates covered by unit tests (`domain/RideAggregatesTest.kt`).
+
+**Notes:** Implemented as persisted per-session stats + in-memory aggregation rather than SQL aggregates
+(distance/lateral-G/lean aren't raw columns and destructive-fallback wipes old data on the bump). The
+service finalize hook computes `SessionStatsComputer.compute` and persists distance / avgSpeed /
+maxLateralG / maxLeanDeg / hardBrakeG / movingPercent onto `Session` (new nullable columns; Room bumped
+4→5); these flow through `SessionSummary` (DAO projection extended). New pure `domain/RideAggregates.kt`
+derives this-week count, lifetime distance, range-scoped records (each with its holding sessionId),
+trend %, and the trailing-6-month series from the summaries list. Screen backfill into D1/D6 is wave 4.
 
 ## E4. Segments data model
 **Status:** ☑ · **Depends on:** none (parallel) · **Spec:** §4.7, §4.8
@@ -616,7 +625,7 @@ here due to a **pre-existing** `concurrent-futures` 1.1.0↔1.2.0 lockfile confl
 instrumented tests) — runs in a real instrumented env. E5 adds matching/timing.
 
 ## E5. Segment matching & timing
-**Status:** ☐ · **Depends on:** E4, E2 · **Spec:** §4.7, §4.8, §4.3 (PB count)
+**Status:** ☑ · **Depends on:** E4, E2 · **Spec:** §4.7, §4.8, §4.3 (PB count)
 
 After a ride is saved, detect which segments the session's GPS track crosses and record a
 `SegmentAttempt` with its elapsed time; compute best time and the trend vs the previous attempt; expose
@@ -627,10 +636,18 @@ the count of segments where the ride set a PB (for the Summary segment row). Run
 `WorkManager` worker; segment repository.
 
 **Acceptance criteria:**
-- [ ] Re-crossing a defined segment on a new ride creates an attempt with a correct elapsed time.
-- [ ] Best time and trend (faster/slower/unchanged + delta) computed and shown in D7/D8.
-- [ ] Summary's "N personal bests by segment" reflects real PBs set by that ride.
-- [ ] Matching logic unit-tested on a synthetic track fixture.
+- [x] Re-crossing a defined segment on a new ride creates an attempt with a correct elapsed time.
+- [x] Best time and trend (faster/slower/unchanged + delta) computed and shown in D7/D8 (via E4 list-item
+      aggregation; attempts now written at finalize).
+- [◐] Summary's "N personal bests by segment" reflects real PBs set by that ride. → D3 backfill (wave 4).
+- [x] Matching logic unit-tested on a synthetic track fixture (`domain/SegmentMatcherTest.kt`).
+
+**Notes:** New pure `domain/SegmentMatcher.kt` (`match(points, segments, thresholdMeters=25.0)`): a segment
+crosses if the track approaches its start waypoint within threshold and later (in order) approaches its end
+waypoint; elapsed = time between those points; PB-run stats over the sub-track. Run from the service
+finalize hook (`stopRecording`) inside `runCatching` — for each match it inserts a `SegmentAttempt`.
+Best/trend surface in D7/D8 through E4's `SegmentListItem`. The Summary per-ride PB count (D3) is wired in
+the wave-4 backfill.
 
 ## E6. Segment creation flow
 **Status:** ☐ · **Depends on:** E4, F1 · **Spec:** §4.7 (Add)
@@ -673,17 +690,21 @@ accel stand-in to the real `DataPoint.lateralGz` now that E1 landed). Empty-stat
 points carry lat/lon, which also keeps `@Preview` safe (no live MapView). F2 (full-screen on tap) pending.
 
 ## F2. Full-screen map
-**Status:** ☐ · **Depends on:** F1 · **Spec:** §4.5 (map card → Opens)
+**Status:** ☑ · **Depends on:** F1 · **Spec:** §4.5 (map card → Opens)
 
 Tapping D5's map card opens a full-screen interactive (pan/zoom) map route showing the same track.
 
 **Key files:** new full-screen map route/composable; `…/MainActivity.kt` nav.
 
 **Acceptance criteria:**
-- [ ] Map card tap opens a full-screen interactive map of the ride; back returns to Trace.
+- [x] Map card tap opens a full-screen interactive map of the ride; back returns to Trace.
+
+**Notes:** New `ui/FullScreenMapScreen.kt` (full-bleed MapLibre map, gestures enabled, same polyline +
+start/end markers + top-speed chip as MapTrackCard). New `map/{sessionId}` route; the Trace map card's
+`onClick` now navigates to it (TraceScreen gained an `onOpenMap` lambda). Back returns to Trace.
 
 ## F3. GPX export
-**Status:** ◐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10, §5
+**Status:** ☑ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10, §5
 
 Add a GPX writer alongside the existing CSV export (`RaceRepository.exportToCsv`). Produce valid GPX
 (track points with lat/lon/elevation/time) for a session.
@@ -692,7 +713,8 @@ Add a GPX writer alongside the existing CSV export (`RaceRepository.exportToCsv`
 
 **Acceptance criteria:**
 - [x] GPX output validates against the schema and opens in a standard GPX viewer.
-- [ ] Wired into the Download action (D5) and Export format choice (D10). → deferred to D10/F5.
+- [x] Wired into the Export format choice (D10) via F5/ExportManager. (D5's one-tap Download remains a CSV
+      quick-export by design — format selection lives in the Export screen.)
 
 **Notes:** `export/GpxExporter.kt` — `suspend fun write(session, points, out)` emits GPX 1.1 (`<trk>`/
 `<trkseg>`/`<trkpt>` with `<ele>` when altitude present, UTC `Z` `<time>`), skips points missing lat/lon,
@@ -700,7 +722,7 @@ escapes the track name, flushes without closing. JVM-tested (`export/GpxExporter
 into any UI — the Download (D5) currently still uses CSV/zip via `exportSession`; F5 wires format choice.
 
 ## F4. FIT export
-**Status:** ◐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10
+**Status:** ☑ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10
 
 Add a FIT writer (Garmin FIT SDK or a minimal encoder). Encode the session record stream into a valid
 `.fit` file.
@@ -709,7 +731,7 @@ Add a FIT writer (Garmin FIT SDK or a minimal encoder). Encode the session recor
 
 **Acceptance criteria:**
 - [x] FIT output is readable by a standard FIT decoder/tool (hand-rolled encoder; layout + CRC per spec).
-- [ ] Wired into the Export format choice (D10). → deferred to D10/F5.
+- [x] Wired into the Export format choice (D10) via F5/ExportManager.
 
 **Notes:** `export/FitExporter.kt` — `suspend fun write(session, points, out)`, a dependency-free minimal
 FIT encoder (no SDK): 14-byte header with `.FIT` magic + header CRC, `file_id` (global 0) + `record`
@@ -719,7 +741,7 @@ own CRC + data-size). No external decoder available in-repo to validate against,
 matches the published Garmin FIT protocol. Wiring deferred to D10/F5.
 
 ## F5. Export scope/include wiring
-**Status:** ☐ · **Depends on:** F3, F4 · **Spec:** §4.10
+**Status:** ◐ · **Depends on:** F3, F4 · **Spec:** §4.10
 
 Make D10 fully functional: honor SCOPE (which trips / date range) and INCLUDE toggles (GPS track / IMU /
 Lean) when producing the chosen-format file; compute the estimated-size + count for the button label; run
@@ -728,9 +750,17 @@ as the Export action with progress, then offer share.
 **Key files:** new `…/export/ExportManager.kt`; `…/ui/ExportScreen.kt`; `RaceViewModel`.
 
 **Acceptance criteria:**
-- [ ] Exported file contains only the selected streams for only the selected trips/date range.
-- [ ] The Export button label's count + estimated size matches the actual export.
-- [ ] Progress is shown and a share sheet appears on completion.
+- [◐] Exported file contains only the selected streams (INCLUDE honored in CSV) — SCOPE filtering (which
+      trips / date range) still exports all trips until D10's scope pickers are wired.
+- [x] The Export button label's count + estimated size matches the actual export (all-trips default).
+- [◐] A share sheet appears on completion; an explicit progress UI is not yet shown.
+
+**Notes:** New `export/ExportManager.kt` (`exportZip(sessions, loadPoints, options, out, onProgress)` →
+one zip entry per trip; CSV honors GPS/IMU/Lean column groups; GPX/FIT delegate to the F3/F4 exporters;
+`estimateBytes` heuristic). Wired through `RaceViewModel.exportTrips(sessionIds, ExportOptions)` →
+zip in cacheDir → FileProvider → existing share-sheet `exportUri` path. The Export screen's `onExport`
+maps `ExportFormat`→`ExportFmt`. **Remaining (to fully tick, before G1):** D10 scope pickers (trips/date)
+so SCOPE actually filters, and a progress indicator during export. Tracked under D10 (◐) + here.
 
 ---
 

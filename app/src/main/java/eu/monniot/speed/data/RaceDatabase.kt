@@ -6,10 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 // v4: E1 adds DataPoint.leanAngleDeg / lateralGz; E4 adds Segment + SegmentAttempt tables.
-// Destructive fallback is enabled, so the bump simply recreates the schema.
+// v5: E3 adds persisted per-session aggregate columns on Session (distance, avg speed, max
+//     lateral G / lean, hard brake, moving %). Destructive fallback recreates the schema.
 @Database(
     entities = [DataPoint::class, Session::class, Segment::class, SegmentAttempt::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class RaceDatabase : RoomDatabase() {

@@ -297,8 +297,43 @@ class RaceRecordingService : LifecycleService() {
         lifecycleScope.launch {
             currentState.sessionId?.let { sid ->
                 val points = repository.getPointsForSession(sid)
-                val maxSpeed = points.maxByOrNull { it.gpsSpeedMs ?: 0f }?.gpsSpeedMs ?: 0f
-                repository.updateSession(Session(sid, currentState.sessionStartTimeMs, System.currentTimeMillis(), points.size, maxSpeed))
+                // E2/E3: compute and persist per-session aggregates at finalize.
+                val stats = eu.monniot.speed.domain.SessionStatsComputer.compute(points)
+                repository.updateSession(
+                    Session(
+                        sessionId = sid,
+                        startTimeMs = currentState.sessionStartTimeMs,
+                        endTimeMs = System.currentTimeMillis(),
+                        pointCount = points.size,
+                        maxSpeedMs = stats.maxSpeedMs,
+                        distanceM = stats.distanceM,
+                        avgSpeedMs = stats.avgSpeedMs,
+                        maxLateralG = stats.maxLateralG,
+                        maxLeanDeg = stats.maxLeanDeg,
+                        hardBrakeG = stats.hardBrakeG,
+                        movingPercent = stats.movingPercent,
+                    )
+                )
+                // E5: match this ride's track against defined segments and record attempts.
+                runCatching {
+                    val segments = repository.getSegmentsForMatching()
+                    if (segments.isNotEmpty()) {
+                        val now = System.currentTimeMillis()
+                        eu.monniot.speed.domain.SegmentMatcher.match(points, segments).forEach { m ->
+                            repository.insertAttempt(
+                                SegmentAttempt(
+                                    segmentId = m.segmentId,
+                                    sessionId = sid,
+                                    elapsedTimeMs = m.elapsedTimeMs,
+                                    dateMs = now,
+                                    maxSpeedMs = m.maxSpeedMs,
+                                    maxLateralG = m.maxLateralG,
+                                    maxLeanDeg = m.maxLeanDeg,
+                                )
+                            )
+                        }
+                    }
+                }
             }
             _state.update { 
                 it.copy(

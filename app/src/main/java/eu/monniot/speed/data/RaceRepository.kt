@@ -23,6 +23,7 @@ class RaceRepository(
     suspend fun getSegment(id: String) = segmentDao.getSegment(id)
     fun getAttemptsForSegment(id: String) = segmentDao.getAttemptsForSegment(id)
     suspend fun insertAttempt(attempt: SegmentAttempt) = segmentDao.insertAttempt(attempt)
+    suspend fun getSegmentsForMatching(): List<Segment> = segmentDao._getSegmentsOnce()
     suspend fun deleteSegment(id: String) {
         segmentDao.deleteAttemptsForSegment(id)
         segmentDao.deleteSegment(id)
