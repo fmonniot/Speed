@@ -78,7 +78,6 @@ private fun PreviewTripsTab() {
                 TripsScreen(
                     sessions = sampleSessions,
                     initialFilter = TripsFilter.ALL,
-                    onSearch = {},
                     onOpenSummary = {},
                 )
             }
@@ -95,7 +94,6 @@ private fun PreviewStatsTab() {
                 StatsScreen(
                     sessions = sampleSessions,
                     segmentCount = 14,
-                    onDateRange = {},
                     onOpenSummary = {},
                     onOpenTrips = {},
                     onOpenSegments = {},

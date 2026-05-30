@@ -271,6 +271,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.updateSegment(segment.copy(isGoal = goal)) }
     }
 
+    fun renameSegment(segment: Segment, name: String) {
+        viewModelScope.launch { repository.updateSegment(segment.copy(name = name)) }
+    }
+
     fun updateSessionNotes(session: Session, notes: String) {
         viewModelScope.launch {
             repository.updateSession(session.copy(notes = notes))

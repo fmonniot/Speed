@@ -68,7 +68,6 @@ fun ExportScreen(
     sessions: List<eu.monniot.speed.data.SessionSummary>,  // all sessions (newest-first)
     isExporting: Boolean,                                   // true while an export runs
     onBack: () -> Unit,
-    onHelp: () -> Unit,
     onExport: (sessionIds: List<String>, format: ExportFormat, includeGps: Boolean, includeImu: Boolean, includeLean: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -81,6 +80,7 @@ fun ExportScreen(
     var dateScope by remember { mutableStateOf(DateScope.ALL_TIME) }
     var showTripsPicker by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
     // ---- Scope filtering (D10/F5) ----
     val now = System.currentTimeMillis()
@@ -123,7 +123,7 @@ fun ExportScreen(
                 title = "Export data",
                 onBack = onBack,
                 trailingIcon = Icons.Rounded.HelpOutline,
-                onTrailingAction = onHelp,
+                onTrailingAction = { showHelp = true },
             )
         },
         modifier = modifier,
@@ -264,6 +264,25 @@ fun ExportScreen(
             selected = dateScope,
             onSelect = { dateScope = it },
             onDismiss = { showDatePicker = false },
+        )
+    }
+    if (showHelp) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text("Export formats") },
+            text = {
+                Text(
+                    "CSV — every captured sample as columns; best for spreadsheets and analysis.\n\n" +
+                        "GPX — the GPS track (lat/lon/elevation/time); opens in any map or GPX viewer.\n\n" +
+                        "FIT — a compact binary track for Garmin and other fitness tools.\n\n" +
+                        "SCOPE limits which trips and dates are included; INCLUDE toggles which data " +
+                        "streams go in the file. The button shows the resulting count and size.",
+                    fontSize = 14.sp,
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showHelp = false }) { Text("Got it") }
+            },
         )
     }
 }
@@ -508,7 +527,6 @@ private fun ExportScreenPreview() {
             ),
             isExporting = false,
             onBack = {},
-            onHelp = {},
             onExport = { _, _, _, _, _ -> },
         )
     }

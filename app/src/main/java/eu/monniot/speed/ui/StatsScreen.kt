@@ -24,11 +24,16 @@ import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,14 +69,17 @@ enum class StatsRange { THIS_YEAR, NINETY_DAYS, ALL_TIME }
 fun StatsScreen(
     sessions: List<SessionSummary>,  // all sessions, newest-first
     segmentCount: Int,                // number of tracked segments (E4)
-    onDateRange: () -> Unit,          // opens a date-range picker (no-op for now)
     onOpenSummary: (String) -> Unit,  // open the ride holding a record
-    onOpenTrips: () -> Unit,          // month-bar tap → that month's trips (month filter is TODO)
+    onOpenTrips: () -> Unit,          // month-bar tap → trips (month scoping added in R5)
     onOpenSegments: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
     var range by remember { mutableStateOf(StatsRange.THIS_YEAR) }
+    // A custom [since, untilExclusive) window from the date-range picker. When set it overrides the
+    // range chips for every scoped figure.
+    var customRange by remember { mutableStateOf<Pair<Long, Long>?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // Compute scope boundaries once per composition
     val now = System.currentTimeMillis()
@@ -92,17 +100,19 @@ fun StatsScreen(
     val ninetyDaysCutoffMs = now - 90L * 24 * 3600 * 1000
     val untilMs = now + 1
 
-    // Scope window [since, until) for E3 aggregates.
-    val sinceMs = when (range) {
+    // Scope window [since, until) for E3 aggregates. A custom range overrides the chips.
+    val sinceMs = customRange?.first ?: when (range) {
         StatsRange.THIS_YEAR -> yearStartMs
         StatsRange.NINETY_DAYS -> ninetyDaysCutoffMs
         StatsRange.ALL_TIME -> 0L
     }
-    val stats = remember(sessions, range) {
-        eu.monniot.speed.domain.RideAggregates.rangeStats(sessions, sinceMs, untilMs)
+    val scopeUntilMs = customRange?.second ?: untilMs
+    val stats = remember(sessions, range, customRange) {
+        eu.monniot.speed.domain.RideAggregates.rangeStats(sessions, sinceMs, scopeUntilMs)
     }
-    // Trend = scoped distance vs the previous comparable period (null for All time / no baseline).
-    val trendPercent = remember(sessions, range) {
+    // Trend = scoped distance vs the previous comparable period (null for All time / custom / no baseline).
+    val trendPercent = remember(sessions, range, customRange) {
+        if (customRange != null) return@remember null
         when (range) {
             StatsRange.THIS_YEAR -> {
                 val prevYearStart = Calendar.getInstance().apply {
@@ -142,10 +152,20 @@ fun StatsScreen(
         eu.monniot.speed.domain.RideAggregates.monthlyDistance(sessions, buckets)
     }
 
-    val scopeLabel = when (range) {
+    val scopeLabel = customRange?.let { (s, e) ->
+        val f = SimpleDateFormat("d MMM", Locale.getDefault())
+        "${f.format(s)} – ${f.format(e - 1)}".uppercase(Locale.getDefault())
+    } ?: when (range) {
         StatsRange.THIS_YEAR -> currentYear.toString()
         StatsRange.NINETY_DAYS -> "90 DAYS"
         StatsRange.ALL_TIME -> "ALL TIME"
+    }
+
+    if (showDatePicker) {
+        StatsDateRangeDialog(
+            onDismiss = { showDatePicker = false },
+            onConfirm = { s, e -> customRange = s to e; showDatePicker = false },
+        )
     }
 
     Scaffold(
@@ -153,7 +173,7 @@ fun StatsScreen(
             SpeedTopBar(
                 title = "Statistics",
                 trailingIcon = Icons.Rounded.DateRange,
-                onTrailingAction = onDateRange,
+                onTrailingAction = { showDatePicker = true },
             )
         },
         modifier = modifier,
@@ -172,18 +192,18 @@ fun StatsScreen(
                 modifier = Modifier.padding(top = 12.dp),
             ) {
                 SpeedSelectableChip(
-                    selected = range == StatsRange.THIS_YEAR,
-                    onClick = { range = StatsRange.THIS_YEAR },
+                    selected = range == StatsRange.THIS_YEAR && customRange == null,
+                    onClick = { range = StatsRange.THIS_YEAR; customRange = null },
                     label = "This year",
                 )
                 SpeedSelectableChip(
-                    selected = range == StatsRange.NINETY_DAYS,
-                    onClick = { range = StatsRange.NINETY_DAYS },
+                    selected = range == StatsRange.NINETY_DAYS && customRange == null,
+                    onClick = { range = StatsRange.NINETY_DAYS; customRange = null },
                     label = "90 days",
                 )
                 SpeedSelectableChip(
-                    selected = range == StatsRange.ALL_TIME,
-                    onClick = { range = StatsRange.ALL_TIME },
+                    selected = range == StatsRange.ALL_TIME && customRange == null,
+                    onClick = { range = StatsRange.ALL_TIME; customRange = null },
                     label = "All time",
                 )
             }
@@ -374,6 +394,36 @@ fun StatsScreen(
     }
 }
 
+// ── Private: custom date-range picker dialog (§4.6 #1) ───────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatsDateRangeDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (sinceMs: Long, untilMsExclusive: Long) -> Unit,
+) {
+    val state = rememberDateRangePickerState()
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null,
+                onClick = {
+                    val s = state.selectedStartDateMillis
+                    val e = state.selectedEndDateMillis
+                    // The picker returns start-of-day millis; add a day so the end date is inclusive.
+                    if (s != null && e != null) onConfirm(s, e + 24L * 3600 * 1000)
+                },
+            ) { Text("Apply") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    ) {
+        DateRangePicker(state = state, modifier = Modifier.weight(1f))
+    }
+}
+
 // ── Private: 6-month bar chart ───────────────────────────────────────────────
 
 @Composable
@@ -546,7 +596,6 @@ private fun StatsScreenPreview() {
         StatsScreen(
             sessions = previewStatsSessions,
             segmentCount = 14,
-            onDateRange = {},
             onOpenSummary = {},
             onOpenTrips = {},
             onOpenSegments = {},

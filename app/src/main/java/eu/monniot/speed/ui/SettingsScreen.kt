@@ -71,7 +71,6 @@ fun SettingsScreen(
     onSetAutoPause: (Boolean) -> Unit,
     onSetUnits: (Units) -> Unit,
     onSetDarkTheme: (Boolean) -> Unit,
-    onHelp: () -> Unit,
     onExportAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -79,13 +78,14 @@ fun SettingsScreen(
     var showGpsPicker by remember { mutableStateOf(false) }
     var showImuPicker by remember { mutableStateOf(false) }
     var showUnitsPicker by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             SpeedTopBar(
                 title = "Settings",
                 trailingIcon = Icons.Rounded.HelpOutline,
-                onTrailingAction = onHelp,
+                onTrailingAction = { showHelp = true },
             )
         },
         modifier = modifier,
@@ -202,6 +202,27 @@ fun SettingsScreen(
             labelFor = { if (it == Units.IMPERIAL) "Imperial" else "Metric" },
             onSelect = { onSetUnits(it); showUnitsPicker = false },
             onDismiss = { showUnitsPicker = false },
+        )
+    }
+
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text("About Speed") },
+            text = {
+                Text(
+                    "Speed records your rides at high precision (GPS + IMU) and lets you relive, " +
+                        "analyse and export each one.\n\n" +
+                        "• SAMPLING sets how often GPS fixes and the IMU are captured; Auto-pause " +
+                        "stops recording while you're stationary.\n" +
+                        "• DISPLAY chooses Metric/Imperial units and the light/dark theme.\n" +
+                        "• Raw data export bundles every trip as CSV, GPX or FIT.",
+                    fontSize = 14.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showHelp = false }) { Text("Got it") }
+            },
         )
     }
 }
@@ -425,7 +446,6 @@ private fun SettingsScreenPreview() {
             onSetAutoPause = {},
             onSetUnits = {},
             onSetDarkTheme = {},
-            onHelp = {},
             onExportAll = {},
         )
     }

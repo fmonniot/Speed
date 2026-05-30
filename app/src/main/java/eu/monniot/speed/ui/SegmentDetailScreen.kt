@@ -18,14 +18,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +80,7 @@ fun SegmentDetailScreen(
     segment: Segment?,                  // null while loading
     attempts: List<SegmentAttempt>,     // newest-first; may be empty
     onBack: () -> Unit,
-    onRename: () -> Unit,
+    onRename: (newName: String) -> Unit,
     onSetGoal: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
@@ -86,6 +89,7 @@ fun SegmentDetailScreen(
 ) {
     val units = LocalUnits.current
     var menuExpanded by remember { mutableStateOf(false) }
+    var showRename by remember { mutableStateOf(false) }
 
     // Compute the personal best (smallest elapsedTimeMs).
     val bestAttempt: SegmentAttempt? = remember(attempts) {
@@ -123,6 +127,31 @@ fun SegmentDetailScreen(
 
     val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
+    if (showRename) {
+        var draft by remember { mutableStateOf(segment?.name.orEmpty()) }
+        AlertDialog(
+            onDismissRequest = { showRename = false },
+            title = { Text("Rename segment") },
+            text = {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    label = { Text("Segment name") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = draft.isNotBlank(),
+                    onClick = { onRename(draft.trim()); showRename = false },
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRename = false }) { Text("Cancel") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             Box {
@@ -139,7 +168,7 @@ fun SegmentDetailScreen(
                 ) {
                     DropdownMenuItem(
                         text = { Text("Rename") },
-                        onClick = { menuExpanded = false; onRename() },
+                        onClick = { menuExpanded = false; showRename = true },
                     )
                     DropdownMenuItem(
                         text = { Text("Set as goal") },

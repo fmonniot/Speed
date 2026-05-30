@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.Units
+import eu.monniot.speed.ui.components.SpeedSearchBar
 import eu.monniot.speed.ui.components.SpeedSelectableChip
 import eu.monniot.speed.ui.components.SpeedTopBar
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -57,18 +58,21 @@ fun SegmentListScreen(
     segments: List<SegmentListItem>,
     onBack: () -> Unit,
     onAdd: () -> Unit,
-    onSearch: () -> Unit,
     onOpenSegment: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
     var sort by remember { mutableStateOf(SegmentSort.BEST_TIME) }
+    var query by remember { mutableStateOf("") }
 
+    val matched = segments.filter {
+        query.isBlank() || it.name.contains(query.trim(), ignoreCase = true)
+    }
     val sortedSegments = when (sort) {
         SegmentSort.BEST_TIME, SegmentSort.NEARBY ->
-            segments.sortedWith(compareBy(nullsLast()) { it.bestTimeMs })
+            matched.sortedWith(compareBy(nullsLast()) { it.bestTimeMs })
         SegmentSort.MOST_RUNS ->
-            segments.sortedByDescending { it.runCount }
+            matched.sortedByDescending { it.runCount }
     }
 
     Scaffold(
@@ -88,34 +92,14 @@ fun SegmentListScreen(
                 .padding(innerPadding)
                 .padding(horizontal = SpeedDimens.screenPadding),
         ) {
-            // Search bar pill
+            // Search bar pill — live in-place filter by segment name.
             item {
-                Surface(
-                    shape = RoundedCornerShape(SpeedDimens.radiusSearchBar),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(SpeedDimens.searchBarHeight)
-                        .clickable(onClick = onSearch),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = "Search segments…",
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                SpeedSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    placeholder = "Search segments…",
+                    glyphSize = 20,
+                )
             }
 
             // Sort chips row
@@ -169,15 +153,17 @@ fun SegmentListScreen(
                             modifier = Modifier.size(48.dp),
                         )
                         Text(
-                            text = "No segments yet",
+                            text = if (query.isNotBlank()) "No matching segments" else "No segments yet",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            text = "Tap + to create one from a ride",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (query.isBlank()) {
+                            Text(
+                                text = "Tap + to create one from a ride",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             } else {
@@ -384,7 +370,6 @@ private fun SegmentListScreenPopulatedPreview() {
             segments = previewSegments,
             onBack = {},
             onAdd = {},
-            onSearch = {},
             onOpenSegment = {},
         )
     }
@@ -398,7 +383,6 @@ private fun SegmentListScreenEmptyPreview() {
             segments = emptyList(),
             onBack = {},
             onAdd = {},
-            onSearch = {},
             onOpenSegment = {},
         )
     }

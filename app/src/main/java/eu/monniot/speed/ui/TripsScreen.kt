@@ -27,11 +27,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.ui.components.ListRow
+import eu.monniot.speed.ui.components.SpeedSearchBar
 import eu.monniot.speed.ui.components.SpeedSelectableChip
 import eu.monniot.speed.ui.components.SpeedTopBar
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -47,27 +49,32 @@ enum class TripsFilter { ALL, THIS_WEEK }
 fun TripsScreen(
     sessions: List<SessionSummary>,          // newest-first already (parent provides DESC by start time)
     initialFilter: TripsFilter,              // pre-select a chip (e.g. arriving from Ride "This week")
-    onSearch: () -> Unit,
     onOpenSummary: (String) -> Unit,         // pass the row's sessionId
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
     var filter by remember { mutableStateOf(initialFilter) }
+    var query by remember { mutableStateOf("") }
+    val searchFocus = remember { FocusRequester() }
+
+    val nameFormat = remember { SimpleDateFormat("EEEE 'ride'", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
     val filteredSessions = when (filter) {
         TripsFilter.ALL -> sessions
         TripsFilter.THIS_WEEK -> sessions.filter { isThisWeek(it.startTimeMs) }
+    }.filter { s ->
+        query.isBlank() ||
+            "${nameFormat.format(s.startTimeMs)} ${dateFormat.format(s.startTimeMs)}"
+                .contains(query.trim(), ignoreCase = true)
     }
-
-    val nameFormat = remember { SimpleDateFormat("EEEE 'ride'", Locale.getDefault()) }
-    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
     Scaffold(
         topBar = {
             SpeedTopBar(
                 title = "Trips",
                 trailingIcon = Icons.Rounded.Search,
-                onTrailingAction = onSearch,
+                onTrailingAction = { searchFocus.requestFocus() },
             )
         },
         modifier = modifier,
@@ -79,34 +86,14 @@ fun TripsScreen(
                 .padding(horizontal = SpeedDimens.screenPadding),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            // Search bar pill — tap-to-open, NOT a real text field
+            // Search bar pill — live in-place filter over the trip list.
             item {
-                Surface(
-                    shape = RoundedCornerShape(SpeedDimens.radiusSearchBar),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(SpeedDimens.searchBarHeight)
-                        .clickable(onClick = onSearch),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Text(
-                            text = "Search ${sessions.size} trips",
-                            fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+                SpeedSearchBar(
+                    query = query,
+                    onQueryChange = { query = it },
+                    placeholder = "Search ${sessions.size} trips",
+                    focusRequester = searchFocus,
+                )
             }
 
             // Filter chips row
@@ -138,7 +125,11 @@ fun TripsScreen(
                             .padding(top = 64.dp),
                     ) {
                         Text(
-                            text = if (filter == TripsFilter.ALL) "No trips yet" else "No trips this week",
+                            text = when {
+                                query.isNotBlank() -> "No matching trips"
+                                filter == TripsFilter.ALL -> "No trips yet"
+                                else -> "No trips this week"
+                            },
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -213,7 +204,6 @@ private fun TripsScreenPopulatedPreview() {
         TripsScreen(
             sessions = previewSessions,
             initialFilter = TripsFilter.ALL,
-            onSearch = {},
             onOpenSummary = {},
         )
     }
@@ -226,7 +216,6 @@ private fun TripsScreenEmptyPreview() {
         TripsScreen(
             sessions = emptyList(),
             initialFilter = TripsFilter.ALL,
-            onSearch = {},
             onOpenSummary = {},
         )
     }

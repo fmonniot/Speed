@@ -267,7 +267,6 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             TripsScreen(
                 sessions = sessions,
                 initialFilter = filter,
-                onSearch = {},
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
             )
         }
@@ -300,7 +299,6 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             StatsScreen(
                 sessions = sessions,
                 segmentCount = segments.size,
-                onDateRange = {},
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenTrips = { navController.navigate(Routes.TRIPS) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
@@ -312,7 +310,6 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 segments = segments,
                 onBack = { navController.popBackStack() },
                 onAdd = { navController.navigate(Routes.SEGMENT_CREATE) },
-                onSearch = {},
                 onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
             )
         }
@@ -338,13 +335,16 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 segment = segment,
                 attempts = attempts,
                 onBack = { navController.popBackStack() },
-                onRename = {}, // TODO: rename dialog
+                onRename = { newName -> segment?.let { viewModel.renameSegment(it, newName) } },
                 onSetGoal = { segment?.let { viewModel.setSegmentGoal(it, !it.isGoal) } },
                 onDelete = {
                     viewModel.deleteSegment(segmentId)
                     navController.popBackStack()
                 },
-                onShare = {},
+                // Share the ride that set the personal best (reuses the single-session export sheet).
+                onShare = {
+                    attempts.minByOrNull { it.elapsedTimeMs }?.let { viewModel.exportSession(it.sessionId) }
+                },
                 onOpenTrace = { sessionId -> navController.navigate(Routes.trace(sessionId)) },
             )
         }
@@ -374,7 +374,6 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onSetAutoPause = viewModel::setAutoPause,
                 onSetUnits = viewModel::setUnits,
                 onSetDarkTheme = viewModel::setDarkTheme,
-                onHelp = {},
                 onExportAll = { navController.navigate(Routes.EXPORT) },
             )
         }
@@ -385,7 +384,6 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 sessions = sessions,
                 isExporting = isExporting,
                 onBack = { navController.popBackStack() },
-                onHelp = {},
                 onExport = { sessionIds, format, includeGps, includeImu, includeLean ->
                     val fmt = when (format) {
                         ExportFormat.CSV -> eu.monniot.speed.export.ExportFmt.CSV
