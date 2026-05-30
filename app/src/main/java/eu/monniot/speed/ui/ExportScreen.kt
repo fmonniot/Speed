@@ -59,13 +59,17 @@ import eu.monniot.speed.ui.theme.SpeedDimens
 
 enum class ExportFormat { CSV, GPX, FIT }
 
+// Scope pickers (D10). Trips = which rides; Date = time window. Applied together (AND).
+enum class TripsScope(val label: String) { ALL("All trips"), THIS_WEEK("This week") }
+enum class DateScope(val label: String) { ALL_TIME("All time"), THIS_YEAR("This year"), LAST_90("Last 90 days") }
+
 @Composable
 fun ExportScreen(
-    tripCount: Int,                 // how many trips are in scope (default = all)
-    fullDatasetBytes: Long,         // estimated bytes for the whole dataset at full resolution
+    sessions: List<eu.monniot.speed.data.SessionSummary>,  // all sessions (newest-first)
+    isExporting: Boolean,                                   // true while an export runs
     onBack: () -> Unit,
     onHelp: () -> Unit,
-    onExport: (format: ExportFormat, includeGps: Boolean, includeImu: Boolean, includeLean: Boolean) -> Unit,
+    onExport: (sessionIds: List<String>, format: ExportFormat, includeGps: Boolean, includeImu: Boolean, includeLean: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // ---- Selection state ----
@@ -73,22 +77,45 @@ fun ExportScreen(
     var includeGps by remember { mutableStateOf(true) }
     var includeImu by remember { mutableStateOf(true) }
     var includeLean by remember { mutableStateOf(false) }
+    var tripsScope by remember { mutableStateOf(TripsScope.ALL) }
+    var dateScope by remember { mutableStateOf(DateScope.ALL_TIME) }
+    var showTripsPicker by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    // ---- Live export size estimate ----
-    //
-    // Heuristic (F5 will replace with a real computation):
-    //   GPS contributes ~25%, IMU ~60%, Lean angle ~15% of the full CSV-equivalent size.
-    //   Weights sum to 1.0 when all streams are enabled.
-    //   GPX and FIT are more compact than CSV; we scale them to ~0.7× of the CSV size.
-    //   A small floor (1 % of full size) ensures the label never reads "0 B".
+    // ---- Scope filtering (D10/F5) ----
+    val now = System.currentTimeMillis()
+    val dateCutoffMs = remember(dateScope) {
+        when (dateScope) {
+            DateScope.ALL_TIME -> 0L
+            DateScope.THIS_YEAR -> {
+                java.util.Calendar.getInstance().apply {
+                    set(java.util.Calendar.MONTH, java.util.Calendar.JANUARY)
+                    set(java.util.Calendar.DAY_OF_MONTH, 1)
+                    set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+                    set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+            }
+            DateScope.LAST_90 -> now - 90L * 24 * 3600 * 1000
+        }
+    }
+    val scoped = sessions
+        .filter { if (tripsScope == TripsScope.THIS_WEEK) isThisWeek(it.startTimeMs) else true }
+        .filter { it.startTimeMs >= dateCutoffMs }
+    val tripCount = scoped.size
+
+    // ---- Live export size estimate over the SCOPED set ----
+    //   Per point ≈ 120 B at full CSV resolution; streams: GPS ~25%, IMU ~60%, Lean ~15%.
+    //   GPX/FIT scale to ~0.7× of CSV. Floor keeps the label from reading "0 B".
+    val scopedPoints = scoped.sumOf { it.pointCount.toLong() }
+    val fullScopedBytes = scopedPoints * 120L
     val streamWeightSum = (if (includeGps) 0.25f else 0f) +
             (if (includeImu) 0.60f else 0f) +
             (if (includeLean) 0.15f else 0f)
-    val floor = fullDatasetBytes * 0.01f
+    val floor = fullScopedBytes * 0.01f
     val formatScale = if (format == ExportFormat.CSV) 1.0f else 0.7f
-    val estimatedBytes = maxOf(floor, fullDatasetBytes * streamWeightSum * formatScale).toLong()
+    val estimatedBytes = maxOf(floor, fullScopedBytes * streamWeightSum * formatScale).toLong()
 
-    val exportLabel = "Export $tripCount trips · ${formatBytes(estimatedBytes)}"
+    val exportLabel = if (isExporting) "Exporting…" else "Export $tripCount trips · ${formatBytes(estimatedBytes)}"
 
     Scaffold(
         topBar = {
@@ -113,7 +140,7 @@ fun ExportScreen(
 
             // ---- Summary line ----
             Text(
-                text = "$tripCount trips · ${formatBytes(fullDatasetBytes)} at full 100 ms resolution",
+                text = "$tripCount trips · ${formatBytes(fullScopedBytes)} at full 100 ms resolution",
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -155,15 +182,15 @@ fun ExportScreen(
                 ExportScopeRow(
                     icon = Icons.Rounded.Route,
                     label = "Trips",
-                    trailingValue = "All $tripCount",
-                    onClick = { /* TODO(F5): open picker */ },
+                    trailingValue = if (tripsScope == TripsScope.ALL) "All $tripCount" else tripsScope.label,
+                    onClick = { showTripsPicker = true },
                 )
                 ExportGroupDivider()
                 ExportScopeRow(
                     icon = Icons.Rounded.CalendarMonth,
                     label = "Date range",
-                    trailingValue = "All time",
-                    onClick = { /* TODO(F5): open picker */ },
+                    trailingValue = dateScope.label,
+                    onClick = { showDatePicker = true },
                 )
             }
 
@@ -193,16 +220,90 @@ fun ExportScreen(
                 )
             }
 
-            // ---- Export button ----
-            SpeedFullWidthButton(
-                onClick = { onExport(format, includeGps, includeImu, includeLean) },
-                label = exportLabel,
-                icon = Icons.Rounded.Download,
-            )
+            // ---- Export button (shows progress + disables while exporting) ----
+            Box(modifier = Modifier.fillMaxWidth()) {
+                SpeedFullWidthButton(
+                    onClick = {
+                        if (!isExporting && tripCount > 0) {
+                            onExport(scoped.map { it.sessionId }, format, includeGps, includeImu, includeLean)
+                        }
+                    },
+                    label = exportLabel,
+                    icon = Icons.Rounded.Download,
+                )
+                if (isExporting) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 20.dp)
+                            .size(20.dp),
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
+
+    // ---- Scope picker dialogs ----
+    if (showTripsPicker) {
+        ScopePickerDialog(
+            title = "Trips",
+            options = TripsScope.entries.map { it to it.label },
+            selected = tripsScope,
+            onSelect = { tripsScope = it },
+            onDismiss = { showTripsPicker = false },
+        )
+    }
+    if (showDatePicker) {
+        ScopePickerDialog(
+            title = "Date range",
+            options = DateScope.entries.map { it to it.label },
+            selected = dateScope,
+            onSelect = { dateScope = it },
+            onDismiss = { showDatePicker = false },
+        )
+    }
+}
+
+@Composable
+private fun <T> ScopePickerDialog(
+    title: String,
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        confirmButton = {},
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        text = {
+            Column {
+                options.forEach { (value, label) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelect(value); onDismiss() }
+                            .padding(vertical = 12.dp),
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = value == selected,
+                            onClick = { onSelect(value); onDismiss() },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(label, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+            }
+        },
+    )
 }
 
 // ---- Private helpers ----
@@ -401,11 +502,14 @@ private fun ExportSwitchRow(
 private fun ExportScreenPreview() {
     RaceLoggerTheme {
         ExportScreen(
-            tripCount = 142,
-            fullDatasetBytes = 2_800_000_000L,
+            sessions = listOf(
+                eu.monniot.speed.data.SessionSummary("a", System.currentTimeMillis(), null, 12000, 52f),
+                eu.monniot.speed.data.SessionSummary("b", System.currentTimeMillis() - 5L * 24 * 3600 * 1000, null, 9000, 44f),
+            ),
+            isExporting = false,
             onBack = {},
             onHelp = {},
-            onExport = { _, _, _, _ -> },
+            onExport = { _, _, _, _, _ -> },
         )
     }
 }

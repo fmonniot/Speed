@@ -33,6 +33,13 @@ interface SegmentDao {
     @Query("SELECT * FROM segment_attempts WHERE segmentId = :id ORDER BY dateMs DESC")
     fun getAttemptsForSegment(id: String): Flow<List<SegmentAttempt>>
 
+    // For the Summary "N personal bests by segment" count (D3 / E5).
+    @Query("SELECT * FROM segment_attempts WHERE sessionId = :sessionId")
+    suspend fun getAttemptsForSession(sessionId: String): List<SegmentAttempt>
+
+    @Query("SELECT MIN(elapsedTimeMs) FROM segment_attempts WHERE segmentId = :segmentId")
+    suspend fun getBestTimeForSegment(segmentId: String): Long?
+
     // ---------------------------------------------------------------------------
     // Helpers used by getSegmentListItems()
     // ---------------------------------------------------------------------------

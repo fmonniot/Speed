@@ -68,6 +68,9 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
 
+    private val _isExporting = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isExporting: StateFlow<Boolean> = _isExporting
+
     init {
         val db = RaceDatabase.getDatabase(application)
         repository = RaceRepository(db.dataPointDao(), db.segmentDao())
@@ -190,15 +193,21 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     // F5: bulk export of the given trips honoring format + include toggles, written as a ZIP and
     // shared. Maps the UI's selection (a list of sessionIds + ExportOptions) through ExportManager.
     fun exportTrips(sessionIds: List<String>, options: ExportOptions) {
+        if (_isExporting.value) return
         viewModelScope.launch {
-            val context = getApplication<Application>().applicationContext
-            val sessions = sessionIds.mapNotNull { repository.getSession(it) }
-            val zipFile = File(context.cacheDir, "speed_export_${System.currentTimeMillis()}.zip")
-            FileOutputStream(zipFile).use { out ->
-                ExportManager.exportZip(sessions, repository::getPointsForSession, options, out)
+            _isExporting.value = true
+            try {
+                val context = getApplication<Application>().applicationContext
+                val sessions = sessionIds.mapNotNull { repository.getSession(it) }
+                val zipFile = File(context.cacheDir, "speed_export_${System.currentTimeMillis()}.zip")
+                FileOutputStream(zipFile).use { out ->
+                    ExportManager.exportZip(sessions, repository::getPointsForSession, options, out)
+                }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", zipFile)
+                _exportUri.emit(uri)
+            } finally {
+                _isExporting.value = false
             }
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.provider", zipFile)
-            _exportUri.emit(uri)
         }
     }
 
@@ -215,6 +224,42 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     suspend fun getSegment(segmentId: String) = repository.getSegment(segmentId)
+
+    suspend fun getPbCountForSession(sessionId: String) = repository.getPbCountForSession(sessionId)
+
+    // E6: create a segment from a sub-track picked off an existing ride.
+    fun createSegment(name: String, points: List<eu.monniot.speed.data.DataPoint>) {
+        viewModelScope.launch {
+            val coords = points.mapNotNull { p ->
+                val lat = p.latitude; val lon = p.longitude
+                if (lat != null && lon != null) lat to lon else null
+            }
+            if (coords.size < 2) return@launch
+            var dist = 0f
+            for (i in 1 until coords.size) {
+                dist += haversineMeters(coords[i - 1], coords[i]).toFloat()
+            }
+            repository.upsertSegment(
+                Segment(
+                    segmentId = java.util.UUID.randomUUID().toString(),
+                    name = name,
+                    distanceM = dist,
+                    pathPolyline = eu.monniot.speed.data.encodePath(coords),
+                    createdAtMs = System.currentTimeMillis(),
+                )
+            )
+        }
+    }
+
+    private fun haversineMeters(a: Pair<Double, Double>, b: Pair<Double, Double>): Double {
+        val r = 6_371_000.0
+        val dLat = Math.toRadians(b.first - a.first)
+        val dLon = Math.toRadians(b.second - a.second)
+        val s = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(a.first)) * Math.cos(Math.toRadians(b.first)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        return r * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s))
+    }
 
     fun getAttemptsForSegment(segmentId: String) = repository.getAttemptsForSegment(segmentId)
 

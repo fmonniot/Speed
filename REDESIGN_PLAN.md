@@ -46,9 +46,9 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [x] D7 Segment list · [x] D8 Segment detail · [x] D9 Settings · [◐] D10 Export
-- [x] E1 Lean+lateral G · [x] E2 SessionStats · [x] E3 Aggregates · [x] E4 Segments model · [x] E5 Segment matching · [ ] E6 Segment creation
-- [x] F1 MapLibre · [x] F2 Full-screen map · [x] F3 GPX export · [x] F4 FIT export · [◐] F5 Export scope/include
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [x] D7 Segment list · [x] D8 Segment detail · [x] D9 Settings · [x] D10 Export
+- [x] E1 Lean+lateral G · [x] E2 SessionStats · [x] E3 Aggregates · [x] E4 Segments model · [x] E5 Segment matching · [x] E6 Segment creation
+- [x] F1 MapLibre · [x] F2 Full-screen map · [x] F3 GPX export · [x] F4 FIT export · [x] F5 Export scope/include
 - [ ] G1 Cleanup
 
 ---
@@ -293,6 +293,8 @@ and the **Record** extended FAB. Wire interactions per §4.1: last-ride card →
 (newest `SessionSummary`) and `thisWeekCount` (calendar-week filter — placeholder until E3). Placeholders
 "—" with TODO(E2/E3) for max lateral G, session distance, and lifetime total distance. Battery % chip is
 "—" (not yet in `ServiceState`). Last-ride name derived from the weekday until a real name field exists.
+**Wave-4 backfill:** the "Total" card now shows `RideAggregates.lifetimeDistanceM`; the last-ride card's
+max-lateral-G + distance read from the persisted `SessionSummary` stats (E2/E3). Battery % stays "—".
 
 ## D2. Ride · Live HUD (`M3Live`)
 **Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.2
@@ -345,6 +347,8 @@ segment-PB row → this ride's segments. Consume `SessionStats` (E2) and segment
 recorded session (all-time top-speed PB for the badge; per-segment PB count is E5). All six grid stats and
 the segment-PB count are "—" with TODO(E1/E2/E5) until those land. Share reuses `exportSession`. Hero/
 segment-row navigate to `trace/{id}` / `segments`. Name derived from the weekday until a name field exists.
+**Wave-4 backfill:** all six grid stats now read the persisted `Session` aggregates (E2/E3) and the
+segment-PB count is real (E5 `getPbCountForSession`).
 
 ## D4. Trips · List (`M3History`)
 **Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.4
@@ -423,6 +427,9 @@ that re-scopes the label and the one derivable figure — the **Top-speed record
 segment count (TODO E4). The 6-month bar row renders the trailing-6-month labels with the current month
 highlighted and zero-height placeholder bars (TODO E2/E3); bars + the three undeived record cards route to
 trips/are inert until E3. Icon fallbacks: `Icons.Filled.Moving`/`Route` (no Rounded variants).
+**Wave-4 backfill:** all figures now derive from `RideAggregates` over the persisted summaries — scoped
+total distance + trend %, the four record cards (top speed / max lean / max lateral G / longest, each
+navigating to its holding ride), the real trailing-6-month bar heights, and the tracked-segment count.
 
 ## D7. Stats · Segment list (`M3SegmentList`)
 **Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.7 · **Data needs:** E4, E5
@@ -496,7 +503,7 @@ new `imuRateHz`/`autoPause` flows). Pickers are `AlertDialog` radio lists. Datas
 ~120 B/point estimate (`formatBytes` in MainActivity) until F5 computes a real size. Help action is a stub.
 
 ## D10. Settings · Export (`M3Export`)
-**Status:** ◐ · **Depends on:** A5, B2, C1 · **Spec:** §4.10 · **Real export needs:** F3, F4, F5
+**Status:** ☑ · **Depends on:** A5, B2, C1 · **Spec:** §4.10 · **Real export needs:** F3, F4, F5
 
 New screen. Top bar: `arrow_back` leading, "Export data" title, `help` trailing; no bottom nav. Content:
 summary line (dataset size at full resolution); **FORMAT** single-select 3-up cards CSV/GPX/FIT (selected
@@ -509,11 +516,11 @@ format select in place; scope rows open pickers; include switches in place; Expo
 **Key files:** new `…/ui/ExportScreen.kt`; export pipeline (F3/F4/F5).
 
 **Acceptance criteria:**
-- [x] Format single-select and include switches function and update the button label (scope pickers are
-      display-only no-ops until F5).
-- [x] Export button label shows the live count + estimated size for the current scope/include (heuristic estimate).
-- [ ] Export action produces a file in the selected format honoring the include toggles (via F-phase),
-      then offers share. → F5.
+- [x] Format single-select, scope pickers (Trips: All/This week; Date: All time/This year/Last 90 days),
+      and include switches all function and update the button label.
+- [x] Export button label shows the live count + estimated size for the current scope/include.
+- [x] Export action produces a file in the selected format honoring the include toggles (via F5), shows
+      a progress spinner, then offers share.
 
 **Notes:** `ui/ExportScreen.kt` (+ `ExportFormat` enum), wired into the `export` route (replaces
 `ExportPlaceholder`). FORMAT 3-up cards (single-select, `check_circle`), SCOPE grouped rows (Trips/Date —
@@ -639,7 +646,8 @@ the count of segments where the ride set a PB (for the Summary segment row). Run
 - [x] Re-crossing a defined segment on a new ride creates an attempt with a correct elapsed time.
 - [x] Best time and trend (faster/slower/unchanged + delta) computed and shown in D7/D8 (via E4 list-item
       aggregation; attempts now written at finalize).
-- [◐] Summary's "N personal bests by segment" reflects real PBs set by that ride. → D3 backfill (wave 4).
+- [x] Summary's "N personal bests by segment" reflects real PBs set by that ride (D3 backfill: nav loads
+      `getPbCountForSession` = attempts of this ride whose time equals their segment's best).
 - [x] Matching logic unit-tested on a synthetic track fixture (`domain/SegmentMatcherTest.kt`).
 
 **Notes:** New pure `domain/SegmentMatcher.kt` (`match(points, segments, thresholdMeters=25.0)`): a segment
@@ -650,7 +658,7 @@ Best/trend surface in D7/D8 through E4's `SegmentListItem`. The Summary per-ride
 the wave-4 backfill.
 
 ## E6. Segment creation flow
-**Status:** ☐ · **Depends on:** E4, F1 · **Spec:** §4.7 (Add)
+**Status:** ☑ · **Depends on:** E4, F1 · **Spec:** §4.7 (Add)
 
 Implement D7's `add` action: create a new `Segment` either by drawing on the map or by picking a stretch
 from an existing ride. Persist via the E4 repository; new segment then appears in the list and begins
@@ -659,8 +667,15 @@ being matched (E5) on future rides.
 **Key files:** new creation composable/route; `MapTrackCard`/map from F1; segment repository.
 
 **Acceptance criteria:**
-- [ ] User can define a segment from a ride (and/or by drawing) and save it.
-- [ ] The saved segment appears in the Segment list and is eligible for matching on subsequent rides.
+- [x] User can define a segment from a ride (pick a stretch via range slider) and save it.
+- [x] The saved segment appears in the Segment list and is eligible for matching on subsequent rides.
+
+**Notes:** `ui/SegmentCreationScreen.kt` (pick a source ride → `RangeSlider` selects the start/end stretch
+over its track, live `MapTrackCard` preview + distance, name field → Save). New `segment_create` route;
+D7's Add opens it. `RaceViewModel.createSegment(name, points)` encodes the sub-track polyline, computes
+distance (haversine), and `upsertSegment`s — the new segment then shows in the list (E4 flow) and is
+matched on subsequent rides at finalize (E5). Drawing-on-map was not implemented (pick-from-ride covers
+the requirement); could be added later.
 
 ---
 
@@ -741,7 +756,7 @@ own CRC + data-size). No external decoder available in-repo to validate against,
 matches the published Garmin FIT protocol. Wiring deferred to D10/F5.
 
 ## F5. Export scope/include wiring
-**Status:** ◐ · **Depends on:** F3, F4 · **Spec:** §4.10
+**Status:** ☑ · **Depends on:** F3, F4 · **Spec:** §4.10
 
 Make D10 fully functional: honor SCOPE (which trips / date range) and INCLUDE toggles (GPS track / IMU /
 Lean) when producing the chosen-format file; compute the estimated-size + count for the button label; run
@@ -750,10 +765,12 @@ as the Export action with progress, then offer share.
 **Key files:** new `…/export/ExportManager.kt`; `…/ui/ExportScreen.kt`; `RaceViewModel`.
 
 **Acceptance criteria:**
-- [◐] Exported file contains only the selected streams (INCLUDE honored in CSV) — SCOPE filtering (which
-      trips / date range) still exports all trips until D10's scope pickers are wired.
-- [x] The Export button label's count + estimated size matches the actual export (all-trips default).
-- [◐] A share sheet appears on completion; an explicit progress UI is not yet shown.
+- [x] Exported file contains only the selected streams (INCLUDE honored in CSV) for only the selected
+      trips/date range (the Export screen filters the session list by the scope pickers and passes the
+      scoped sessionIds to `exportTrips`).
+- [x] The Export button label's count + estimated size matches the actual (scoped) export.
+- [x] A progress spinner shows on the button while exporting (`RaceViewModel.isExporting`), then the
+      existing share sheet appears on completion.
 
 **Notes:** New `export/ExportManager.kt` (`exportZip(sessions, loadPoints, options, out, onProgress)` →
 one zip entry per trip; CSV honors GPS/IMU/Lean column groups; GPX/FIT delegate to the F3/F4 exporters;

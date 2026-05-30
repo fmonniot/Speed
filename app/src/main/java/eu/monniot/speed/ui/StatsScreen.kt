@@ -63,8 +63,9 @@ enum class StatsRange { THIS_YEAR, NINETY_DAYS, ALL_TIME }
 @Composable
 fun StatsScreen(
     sessions: List<SessionSummary>,  // all sessions, newest-first
+    segmentCount: Int,                // number of tracked segments (E4)
     onDateRange: () -> Unit,          // opens a date-range picker (no-op for now)
-    onOpenSummary: (String) -> Unit,  // open the ride holding a record (top-speed wired)
+    onOpenSummary: (String) -> Unit,  // open the ride holding a record
     onOpenTrips: () -> Unit,          // month-bar tap → that month's trips (month filter is TODO)
     onOpenSegments: () -> Unit,
     modifier: Modifier = Modifier,
@@ -89,11 +90,56 @@ fun StatsScreen(
         }.timeInMillis
     }
     val ninetyDaysCutoffMs = now - 90L * 24 * 3600 * 1000
+    val untilMs = now + 1
 
-    val scoped = when (range) {
-        StatsRange.THIS_YEAR -> sessions.filter { it.startTimeMs >= yearStartMs }
-        StatsRange.NINETY_DAYS -> sessions.filter { it.startTimeMs >= ninetyDaysCutoffMs }
-        StatsRange.ALL_TIME -> sessions
+    // Scope window [since, until) for E3 aggregates.
+    val sinceMs = when (range) {
+        StatsRange.THIS_YEAR -> yearStartMs
+        StatsRange.NINETY_DAYS -> ninetyDaysCutoffMs
+        StatsRange.ALL_TIME -> 0L
+    }
+    val stats = remember(sessions, range) {
+        eu.monniot.speed.domain.RideAggregates.rangeStats(sessions, sinceMs, untilMs)
+    }
+    // Trend = scoped distance vs the previous comparable period (null for All time / no baseline).
+    val trendPercent = remember(sessions, range) {
+        when (range) {
+            StatsRange.THIS_YEAR -> {
+                val prevYearStart = Calendar.getInstance().apply {
+                    timeInMillis = yearStartMs; add(Calendar.YEAR, -1)
+                }.timeInMillis
+                eu.monniot.speed.domain.RideAggregates.trendPercent(
+                    stats.totalDistanceM,
+                    eu.monniot.speed.domain.RideAggregates.distanceInRange(sessions, prevYearStart, yearStartMs),
+                )
+            }
+            StatsRange.NINETY_DAYS -> eu.monniot.speed.domain.RideAggregates.trendPercent(
+                stats.totalDistanceM,
+                eu.monniot.speed.domain.RideAggregates.distanceInRange(sessions, now - 180L * 24 * 3600 * 1000, ninetyDaysCutoffMs),
+            )
+            StatsRange.ALL_TIME -> null
+        }
+    }
+    // Trailing-6-month buckets for the bar chart.
+    val monthBars = remember(sessions) {
+        val cal = Calendar.getInstance()
+        val fmt = SimpleDateFormat("MMM", Locale.getDefault())
+        val buckets = (5 downTo 0).map { monthsBack ->
+            val start = (cal.clone() as Calendar).apply {
+                add(Calendar.MONTH, -monthsBack)
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }
+            val end = (start.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+            eu.monniot.speed.domain.MonthBucket(
+                startMs = start.timeInMillis,
+                endMsExclusive = end.timeInMillis,
+                label = fmt.format(start.time).uppercase(Locale.getDefault()),
+                isCurrent = monthsBack == 0,
+            )
+        }
+        eu.monniot.speed.domain.RideAggregates.monthlyDistance(sessions, buckets)
     }
 
     val scopeLabel = when (range) {
@@ -101,9 +147,6 @@ fun StatsScreen(
         StatsRange.NINETY_DAYS -> "90 DAYS"
         StatsRange.ALL_TIME -> "ALL TIME"
     }
-
-    // Derivable top-speed record from scoped sessions
-    val topRecord = scoped.maxByOrNull { it.maxSpeedMs ?: 0f }
 
     Scaffold(
         topBar = {
@@ -169,32 +212,33 @@ fun StatsScreen(
                             letterSpacing = 0.08.em,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                         )
-                        // TODO(E3): trend % vs previous period
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.TrendingUp,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "—",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight(600),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            )
+                        // Trend % vs the previous comparable period (hidden when no baseline).
+                        if (trendPercent != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.TrendingUp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = (if (trendPercent >= 0) "+" else "") + "$trendPercent%",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight(600),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                )
+                            }
                         }
                     }
 
-                    // Numeral row: value + unit
-                    // TODO(E2/E3): scoped total distance
+                    // Numeral row: scoped total distance + unit
                     Row(
                         verticalAlignment = Alignment.Bottom,
                         modifier = Modifier.padding(top = 4.dp),
                     ) {
                         Text(
-                            text = "—",
+                            text = UnitFormat.distanceValue(stats.totalDistanceM, units),
                             style = SpeedTextStyles.heroStats,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
@@ -208,9 +252,9 @@ fun StatsScreen(
                         )
                     }
 
-                    // 6-month bar chart
-                    // TODO(E2/E3): real per-month distance heights + month-filtered trips
+                    // 6-month bar chart (real per-month distance heights).
                     MonthBars(
+                        bars = monthBars,
                         onOpenTrips = onOpenTrips,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -228,55 +272,55 @@ fun StatsScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // 1. Top speed — derivable from session list (wired)
+                    // 1. Top speed
                     RecordCard(
                         label = "Top speed",
-                        value = topRecord?.maxSpeedMs?.let { UnitFormat.speedValue(it, units) } ?: "—",
+                        value = if (stats.topSpeed.sessionId != null) UnitFormat.speedValue(stats.topSpeed.value, units) else "—",
                         unit = UnitFormat.speedUnit(units),
                         icon = Icons.Rounded.Speed,
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                        onClick = topRecord?.let { record -> { onOpenSummary(record.sessionId) } },
+                        onClick = stats.topSpeed.sessionId?.let { id -> { onOpenSummary(id) } },
                         modifier = Modifier.weight(1f),
                     )
-                    // 2. Max lean — TODO(E1/E3)
+                    // 2. Max lean
                     RecordCard(
                         label = "Max lean",
-                        value = "—",
-                        unit = "°",
+                        value = if (stats.maxLean.sessionId != null) UnitFormat.leanValue(stats.maxLean.value) else "—",
+                        unit = "",
                         icon = Icons.Filled.Moving,
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                        onClick = null,
+                        onClick = stats.maxLean.sessionId?.let { id -> { onOpenSummary(id) } },
                         modifier = Modifier.weight(1f),
-                    ) // TODO(E1/E3)
+                    )
                 }
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // 3. Max lateral G — TODO(E1/E3)
+                    // 3. Max lateral G
                     RecordCard(
                         label = "Max g lat",
-                        value = "—",
+                        value = if (stats.maxLateralG.sessionId != null) UnitFormat.lateralGValue(stats.maxLateralG.value) else "—",
                         unit = "g",
                         icon = Icons.Rounded.Speed,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.onSurface,
-                        onClick = null,
+                        onClick = stats.maxLateralG.sessionId?.let { id -> { onOpenSummary(id) } },
                         modifier = Modifier.weight(1f),
-                    ) // TODO(E1/E3)
-                    // 4. Longest ride — TODO(E2/E3)
+                    )
+                    // 4. Longest ride
                     RecordCard(
                         label = "Longest",
-                        value = "—",
+                        value = if (stats.longestRide.sessionId != null) UnitFormat.distanceValue(stats.longestRide.value, units) else "—",
                         unit = UnitFormat.distanceUnit(units),
                         icon = Icons.Filled.Route,
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         contentColor = MaterialTheme.colorScheme.onSurface,
-                        onClick = null,
+                        onClick = stats.longestRide.sessionId?.let { id -> { onOpenSummary(id) } },
                         modifier = Modifier.weight(1f),
-                    ) // TODO(E2/E3)
+                    )
                 }
             }
 
@@ -308,9 +352,8 @@ fun StatsScreen(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp),
                         )
-                        // TODO(E4): segment count
                         Text(
-                            text = "— tracked segments",
+                            text = "$segmentCount tracked segments",
                             fontSize = 15.sp,
                             fontWeight = FontWeight(500),
                             color = MaterialTheme.colorScheme.onSurface,
@@ -335,29 +378,19 @@ fun StatsScreen(
 
 @Composable
 private fun MonthBars(
+    bars: List<eu.monniot.speed.domain.MonthBar>,
     onOpenTrips: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Build trailing 6 months ending with the current month
-    val monthLabels = remember {
-        val cal = Calendar.getInstance()
-        val fmt = SimpleDateFormat("MMM", Locale.getDefault())
-        (5 downTo 0).map { monthsBack ->
-            val c = cal.clone() as Calendar
-            c.add(Calendar.MONTH, -monthsBack)
-            fmt.format(c.time).uppercase(Locale.getDefault())
-        }
-    }
-
-    // TODO(E2/E3): real per-month distance heights + month-filtered trips
-    // All values are 0 since per-month distance is not yet computed.
+    val maxDistance = bars.maxOfOrNull { it.distanceM } ?: 0f
+    val maxBarHeight = 48.dp
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Bottom,
         modifier = modifier.height(64.dp),
     ) {
-        monthLabels.forEachIndexed { index, label ->
-            val isCurrentMonth = index == monthLabels.lastIndex
+        bars.forEach { bar ->
+            val isCurrentMonth = bar.isCurrent
             val barColor = if (isCurrentMonth) {
                 MaterialTheme.colorScheme.onPrimaryContainer
             } else {
@@ -365,6 +398,9 @@ private fun MonthBars(
             }
             val labelWeight = if (isCurrentMonth) FontWeight(700) else FontWeight(500)
             val labelAlpha = if (isCurrentMonth) 0.95f else 0.6f
+            // Height ∝ distance, with a 4 dp minimum so empty months still show a baseline.
+            val frac = if (maxDistance > 0f) bar.distanceM / maxDistance else 0f
+            val barHeight = (maxBarHeight * frac).coerceAtLeast(4.dp)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -374,11 +410,10 @@ private fun MonthBars(
                     .fillMaxSize()
                     .clickable { onOpenTrips() },
             ) {
-                // Bar (zero height since value = 0 — placeholder base bar)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp),
+                        .height(barHeight),
                 ) {
                     Surface(
                         color = barColor,
@@ -389,7 +424,7 @@ private fun MonthBars(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = label,
+                    text = bar.label,
                     fontSize = 10.sp,
                     fontWeight = labelWeight,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = labelAlpha),
@@ -510,6 +545,7 @@ private fun StatsScreenPreview() {
     RaceLoggerTheme {
         StatsScreen(
             sessions = previewStatsSessions,
+            segmentCount = 14,
             onDateRange = {},
             onOpenSummary = {},
             onOpenTrips = {},

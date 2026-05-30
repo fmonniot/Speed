@@ -24,6 +24,12 @@ class RaceRepository(
     fun getAttemptsForSegment(id: String) = segmentDao.getAttemptsForSegment(id)
     suspend fun insertAttempt(attempt: SegmentAttempt) = segmentDao.insertAttempt(attempt)
     suspend fun getSegmentsForMatching(): List<Segment> = segmentDao._getSegmentsOnce()
+
+    /** Count of segments where this session's attempt set the personal best (D3 segment-PB row). */
+    suspend fun getPbCountForSession(sessionId: String): Int {
+        val attempts = segmentDao.getAttemptsForSession(sessionId)
+        return attempts.count { it.elapsedTimeMs == segmentDao.getBestTimeForSegment(it.segmentId) }
+    }
     suspend fun deleteSegment(id: String) {
         segmentDao.deleteAttemptsForSegment(id)
         segmentDao.deleteSegment(id)

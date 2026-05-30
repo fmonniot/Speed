@@ -61,6 +61,7 @@ fun RideHomeScreen(
     gpsRateHz: Int,
     lastRide: SessionSummary?,
     thisWeekCount: Int,
+    lifetimeDistanceM: Float,
     onRecord: () -> Unit,
     onOpenSummary: (String) -> Unit,   // pass the lastRide.sessionId
     onOpenTrips: () -> Unit,
@@ -171,7 +172,7 @@ fun RideHomeScreen(
                         .clickable(onClick = onOpenStats),
                 ) {
                     TonalStatCard(
-                        value = "—", // TODO(E3): lifetime distance
+                        value = UnitFormat.distance(lifetimeDistanceM, units),
                         caption = "Total distance",
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -301,12 +302,12 @@ private fun LastRideCard(
                     )
                     // Max lateral G
                     InlineStat(
-                        value = "—", // TODO(E2/E3): real value
+                        value = lastRide.maxLateralG?.let { UnitFormat.lateralGValue(it) } ?: "—",
                         caption = "g lat",
                     )
                     // Distance
                     InlineStat(
-                        value = "—", // TODO(E2): session distance
+                        value = lastRide.distanceM?.let { UnitFormat.distanceValue(it, units) } ?: "—",
                         caption = UnitFormat.distanceUnit(units),
                     )
                 }
@@ -361,6 +362,7 @@ private fun RideHomeScreenPreview() {
                 gpsRateHz = 5,
                 lastRide = fakeLastRide,
                 thisWeekCount = 4,
+                lifetimeDistanceM = 8_412_000f,
                 onRecord = {},
                 onOpenSummary = {},
                 onOpenTrips = {},
@@ -387,6 +389,7 @@ private fun RideHomeScreenNoRidePreview() {
                 gpsRateHz = 1,
                 lastRide = null,
                 thisWeekCount = 0,
+                lifetimeDistanceM = 0f,
                 onRecord = {},
                 onOpenSummary = {},
                 onOpenTrips = {},

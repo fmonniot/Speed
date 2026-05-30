@@ -48,6 +48,7 @@ import eu.monniot.speed.ui.FullScreenMapScreen
 import eu.monniot.speed.ui.isThisWeek
 import eu.monniot.speed.ui.LiveHudScreen
 import eu.monniot.speed.ui.RideHomeScreen
+import eu.monniot.speed.ui.SegmentCreationScreen
 import eu.monniot.speed.ui.SegmentDetailScreen
 import eu.monniot.speed.ui.SegmentListScreen
 import eu.monniot.speed.ui.SettingsScreen
@@ -112,6 +113,7 @@ object Routes {
     const val STATS = "stats"
     const val SEGMENTS = "segments"
     const val SEGMENT = "segment/{segmentId}"
+    const val SEGMENT_CREATE = "segment_create"
     const val SETTINGS = "settings"
     const val EXPORT = "export"
 
@@ -194,6 +196,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 gpsRateHz = gpsRateHz,
                 lastRide = sessions.firstOrNull(),
                 thisWeekCount = sessions.count { isThisWeek(it.startTimeMs) },
+                lifetimeDistanceM = eu.monniot.speed.domain.RideAggregates.lifetimeDistanceM(sessions),
                 onRecord = {
                     viewModel.startRecording()
                     navController.navigate(Routes.LIVE)
@@ -225,21 +228,23 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
             var session by remember(sessionId) { mutableStateOf<Session?>(null) }
             LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }
-            // NEW PB when this session's top speed beats every other recorded session (E5 will
-            // add the per-segment PB count; this is the all-time top-speed PB for the badge).
+            // NEW PB when this session's top speed beats every other recorded session.
             val topSpeed = session?.maxSpeedMs
             val isNewPb = topSpeed != null &&
                 sessions.filter { it.sessionId != sessionId }.all { (it.maxSpeedMs ?: 0f) < topSpeed }
+            // E5: count of segments where this ride set a PB.
+            var segmentPbCount by remember(sessionId) { mutableStateOf<Int?>(null) }
+            LaunchedEffect(sessionId) { segmentPbCount = viewModel.getPbCountForSession(sessionId) }
             SummaryScreen(
                 session = session,
                 isNewPb = isNewPb,
-                maxLateralG = null,
-                maxLeanDeg = null,
-                distanceM = null,
-                avgSpeedMs = null,
-                hardBrakeG = null,
-                movingPercent = null,
-                segmentPbCount = null,
+                maxLateralG = session?.maxLateralG,
+                maxLeanDeg = session?.maxLeanDeg,
+                distanceM = session?.distanceM,
+                avgSpeedMs = session?.avgSpeedMs,
+                hardBrakeG = session?.hardBrakeG,
+                movingPercent = session?.movingPercent?.toFloat(),
+                segmentPbCount = segmentPbCount,
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
                 onOpenTrace = { navController.navigate(Routes.trace(sessionId)) },
@@ -291,8 +296,10 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         }
         composable(Routes.STATS) {
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            val segments by viewModel.segmentListItems.collectAsState()
             StatsScreen(
                 sessions = sessions,
+                segmentCount = segments.size,
                 onDateRange = {},
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenTrips = { navController.navigate(Routes.TRIPS) },
@@ -304,9 +311,21 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             SegmentListScreen(
                 segments = segments,
                 onBack = { navController.popBackStack() },
-                onAdd = {}, // TODO(E6): segment creation flow
+                onAdd = { navController.navigate(Routes.SEGMENT_CREATE) },
                 onSearch = {},
                 onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
+            )
+        }
+        composable(Routes.SEGMENT_CREATE) {
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            SegmentCreationScreen(
+                rides = sessions,
+                loadPoints = { id -> viewModel.getPointsForSession(id) },
+                onCancel = { navController.popBackStack() },
+                onSave = { name, _, points ->
+                    viewModel.createSegment(name, points)
+                    navController.popBackStack()
+                },
             )
         }
         composable(Routes.SEGMENT) { backStackEntry ->
@@ -361,20 +380,20 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         }
         composable(Routes.EXPORT) {
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
-            val totalPoints = sessions.sumOf { it.pointCount.toLong() }
+            val isExporting by viewModel.isExporting.collectAsState()
             ExportScreen(
-                tripCount = sessions.size,
-                fullDatasetBytes = totalPoints * 120L,
+                sessions = sessions,
+                isExporting = isExporting,
                 onBack = { navController.popBackStack() },
                 onHelp = {},
-                onExport = { format, includeGps, includeImu, includeLean ->
+                onExport = { sessionIds, format, includeGps, includeImu, includeLean ->
                     val fmt = when (format) {
                         ExportFormat.CSV -> eu.monniot.speed.export.ExportFmt.CSV
                         ExportFormat.GPX -> eu.monniot.speed.export.ExportFmt.GPX
                         ExportFormat.FIT -> eu.monniot.speed.export.ExportFmt.FIT
                     }
                     viewModel.exportTrips(
-                        sessionIds = sessions.map { it.sessionId },
+                        sessionIds = sessionIds,
                         options = eu.monniot.speed.export.ExportOptions(
                             format = fmt,
                             includeGps = includeGps,
