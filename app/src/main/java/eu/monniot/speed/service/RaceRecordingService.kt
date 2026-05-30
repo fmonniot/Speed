@@ -41,6 +41,7 @@ data class ServiceState(
     val currentLateralG: Float = 0f,
     val currentAccuracyM: Float? = null,
     // Battery metrics
+    val batteryPercent: Int? = null,
     val batteryWattage: Float? = null,
     val batteryCapacityMah: Int? = null,
     val batteryTimeRemainingMs: Long? = null
@@ -203,6 +204,7 @@ class RaceRecordingService : LifecycleService() {
 
                 _state.update {
                     it.copy(
+                        batteryPercent = capacityPercent.takeIf { p -> p in 0..100 },
                         batteryWattage = wattage,
                         batteryCapacityMah = totalCapacityMah,
                         batteryTimeRemainingMs = timeRemainingMs

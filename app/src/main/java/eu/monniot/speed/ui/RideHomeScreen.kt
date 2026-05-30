@@ -129,7 +129,7 @@ fun RideHomeScreen(
 
                 SensorChip(
                     icon = Icons.Rounded.BatteryFull,
-                    label = "—%", // TODO(E3): battery % not yet in ServiceState
+                    label = serviceState.batteryPercent?.let { "$it%" } ?: "—%",
                 )
             }
 
@@ -280,9 +280,8 @@ private fun LastRideCard(
                     )
                 }
 
-                // Session derived name (e.g. "Monday ride")
-                val nameFmt = SimpleDateFormat("EEEE 'ride'", Locale.getDefault())
-                val sessionName = nameFmt.format(lastRide.startTimeMs)
+                // User-given name, or a weekday-derived label (e.g. "Monday ride")
+                val sessionName = sessionDisplayName(lastRide.name, lastRide.startTimeMs)
                 Text(
                     text = sessionName,
                     style = MaterialTheme.typography.headlineSmall,
@@ -346,6 +345,7 @@ private fun RideHomeScreenPreview() {
         currentAccuracyM = 3.5f,
         satellites = SatelliteInfo(usedInFix = 12, visible = 16),
         pointCount = 0,
+        batteryPercent = 94,
     )
     val fakeLastRide = SessionSummary(
         sessionId = "preview-session-001",

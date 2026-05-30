@@ -280,4 +280,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateSession(session.copy(notes = notes))
         }
     }
+
+    fun renameSession(session: Session, name: String) {
+        viewModelScope.launch {
+            repository.updateSession(session.copy(name = name))
+        }
+    }
 }

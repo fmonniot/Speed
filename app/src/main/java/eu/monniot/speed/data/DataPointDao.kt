@@ -17,7 +17,7 @@ interface DataPointDao {
     @Update
     suspend fun updateSession(session: Session)
 
-    @Query("SELECT sessionId, startTimeMs, endTimeMs, pointCount, maxSpeedMs, distanceM, avgSpeedMs, maxLateralG, maxLeanDeg FROM sessions ORDER BY startTimeMs DESC")
+    @Query("SELECT sessionId, startTimeMs, endTimeMs, pointCount, maxSpeedMs, distanceM, avgSpeedMs, maxLateralG, maxLeanDeg, name FROM sessions ORDER BY startTimeMs DESC")
     fun getSessionSummaries(): Flow<List<SessionSummary>>
 
     @Query("SELECT * FROM sessions WHERE sessionId = :sessionId")

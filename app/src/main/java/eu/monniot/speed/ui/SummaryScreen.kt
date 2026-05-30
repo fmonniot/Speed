@@ -20,13 +20,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,7 +52,6 @@ import eu.monniot.speed.ui.theme.SpeedTextStyles
 import eu.monniot.speed.util.FormatUtils
 import eu.monniot.speed.util.LocalUnits
 import eu.monniot.speed.util.UnitFormat
-import java.text.SimpleDateFormat
 import java.util.Locale
 
 @Composable
@@ -61,11 +67,13 @@ fun SummaryScreen(
     segmentPbCount: Int?,    // TODO(E5): segment PB detection
     onBack: () -> Unit,
     onShare: () -> Unit,
+    onRename: (String) -> Unit,
     onOpenTrace: () -> Unit,
     onOpenSegments: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
+    var showRename by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -90,6 +98,31 @@ fun SummaryScreen(
             return@Scaffold
         }
 
+        if (showRename) {
+            var draft by remember { mutableStateOf(session.name.orEmpty()) }
+            AlertDialog(
+                onDismissRequest = { showRename = false },
+                title = { Text("Rename ride") },
+                text = {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        label = { Text("Ride name") },
+                        singleLine = true,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = draft.isNotBlank(),
+                        onClick = { onRename(draft.trim()); showRename = false },
+                    ) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showRename = false }) { Text("Cancel") }
+                },
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -98,16 +131,15 @@ fun SummaryScreen(
                 .padding(horizontal = SpeedDimens.screenPadding)
                 .padding(bottom = SpeedDimens.screenPadding),
         ) {
-            // Session name: derived from the weekday of the start time
-            val sessionName = SimpleDateFormat("EEEE 'ride'", Locale.getDefault())
-                .format(session.startTimeMs)
-
+            // User-given name, or a weekday-derived label. Tap to rename.
+            val sessionName = sessionDisplayName(session.name, session.startTimeMs)
             Text(
                 text = sessionName,
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.clickable { showRename = true },
             )
 
             // Meta line: date · start→end times · duration
@@ -384,6 +416,7 @@ private fun SummaryScreenPreview() {
             segmentPbCount = 3,
             onBack = {},
             onShare = {},
+            onRename = {},
             onOpenTrace = {},
             onOpenSegments = {},
         )

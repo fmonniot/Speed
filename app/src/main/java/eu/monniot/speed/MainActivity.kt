@@ -253,6 +253,12 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 segmentPbCount = segmentPbCount,
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
+                onRename = { newName ->
+                    session?.let { s ->
+                        viewModel.renameSession(s, newName)
+                        session = s.copy(name = newName) // reflect immediately
+                    }
+                },
                 onOpenTrace = { navController.navigate(Routes.traceFocusPeak(sessionId)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
             )

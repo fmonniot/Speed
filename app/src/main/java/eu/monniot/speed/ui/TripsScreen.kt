@@ -58,7 +58,6 @@ fun TripsScreen(
     var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
 
-    val nameFormat = remember { SimpleDateFormat("EEEE 'ride'", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
     // Restrict to the date window first (when arriving month-scoped), then chip-filter + search.
@@ -72,7 +71,7 @@ fun TripsScreen(
         TripsFilter.THIS_WEEK -> windowed.filter { isThisWeek(it.startTimeMs) }
     }.filter { s ->
         query.isBlank() ||
-            "${nameFormat.format(s.startTimeMs)} ${dateFormat.format(s.startTimeMs)}"
+            "${sessionDisplayName(s.name, s.startTimeMs)} ${dateFormat.format(s.startTimeMs)}"
                 .contains(query.trim(), ignoreCase = true)
     }
 
@@ -145,9 +144,7 @@ fun TripsScreen(
             } else {
                 // Trip rows, newest-first (order maintained from parent)
                 items(filteredSessions, key = { it.sessionId }) { session ->
-                    val name = remember(session.startTimeMs) {
-                        nameFormat.format(session.startTimeMs)
-                    }
+                    val name = sessionDisplayName(session.name, session.startTimeMs)
                     val dateStr = remember(session.startTimeMs) {
                         dateFormat.format(session.startTimeMs)
                     }

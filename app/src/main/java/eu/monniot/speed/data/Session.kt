@@ -17,7 +17,9 @@ data class Session(
     val maxLateralG: Float? = null,
     val maxLeanDeg: Float? = null,
     val hardBrakeG: Float? = null,
-    val movingPercent: Int? = null
+    val movingPercent: Int? = null,
+    // R8: optional user-given ride name; screens fall back to a weekday-derived label when null.
+    val name: String? = null
 )
 
 // Projection for lists/aggregates. Carries the persisted per-session stats so screens (Trips/Stats/
@@ -31,5 +33,6 @@ data class SessionSummary(
     val distanceM: Float? = null,
     val avgSpeedMs: Float? = null,
     val maxLateralG: Float? = null,
-    val maxLeanDeg: Float? = null
+    val maxLeanDeg: Float? = null,
+    val name: String? = null
 )
