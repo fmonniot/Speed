@@ -1,62 +1,81 @@
 package eu.monniot.speed.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFFF5252),
-    secondary = Color(0xFF03DAC6),
-    tertiary = Color(0xFFBB86FC),
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
-    onPrimary = Color.White,
-    onSecondary = Color.Black,
-    onTertiary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.White,
+private val GreenLightColorScheme = lightColorScheme(
+    primary = GreenPrimary,
+    onPrimary = GreenOnPrimary,
+    primaryContainer = GreenPrimaryContainer,
+    onPrimaryContainer = GreenOnPrimaryContainer,
+    secondary = GreenSecondary,
+    secondaryContainer = GreenSecondaryContainer,
+    onSecondaryContainer = GreenOnSecondaryContainer,
+    tertiary = GreenTertiary,
+    tertiaryContainer = GreenTertiaryContainer,
+    onTertiaryContainer = GreenOnTertiaryContainer,
+    error = GreenError,
+    errorContainer = GreenErrorContainer,
+    onErrorContainer = GreenOnErrorContainer,
+    surface = GreenSurface,
+    surfaceDim = GreenSurfaceDim,
+    surfaceContainerLow = GreenSurfaceContainerLow,
+    surfaceContainer = GreenSurfaceContainer,
+    surfaceContainerHigh = GreenSurfaceContainerHigh,
+    surfaceContainerHighest = GreenSurfaceContainerHighest,
+    onSurface = GreenOnSurface,
+    onSurfaceVariant = GreenOnSurfaceVariant,
+    outline = GreenOutline,
+    outlineVariant = GreenOutlineVariant,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFFD32F2F),
-    secondary = Color(0xFF018786),
-    tertiary = Color(0xFF6200EE),
-    background = Color(0xFFF5F5F5),
-    surface = Color.White,
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color.Black,
-    onSurface = Color.Black,
+private val GreenDarkColorScheme = darkColorScheme(
+    primary = GreenDarkPrimary,
+    onPrimary = GreenDarkOnPrimary,
+    primaryContainer = GreenDarkPrimaryContainer,
+    onPrimaryContainer = GreenDarkOnPrimaryContainer,
+    secondary = GreenDarkSecondary,
+    secondaryContainer = GreenDarkSecondaryContainer,
+    onSecondaryContainer = GreenDarkOnSecondaryContainer,
+    tertiary = GreenDarkTertiary,
+    tertiaryContainer = GreenDarkTertiaryContainer,
+    onTertiaryContainer = GreenDarkOnTertiaryContainer,
+    error = GreenDarkError,
+    errorContainer = GreenDarkErrorContainer,
+    onErrorContainer = GreenDarkOnErrorContainer,
+    surface = GreenDarkSurface,
+    surfaceContainerLow = GreenDarkSurfaceContainerLow,
+    surfaceContainer = GreenDarkSurfaceContainer,
+    surfaceContainerHigh = GreenDarkSurfaceContainerHigh,
+    surfaceContainerHighest = GreenDarkSurfaceContainerHighest,
+    onSurface = GreenDarkOnSurface,
+    onSurfaceVariant = GreenDarkOnSurfaceVariant,
+    outline = GreenDarkOutline,
+    outlineVariant = GreenDarkOutlineVariant,
 )
 
+// No dynamic color: always green light or dark, driven by explicit darkTheme param.
+// MainActivity passes isSystemInDarkTheme() as a temporary source until C3 wires DataStore.
 @Composable
 fun RaceLoggerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (darkTheme) GreenDarkColorScheme else GreenLightColorScheme
+
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Set status bar to transparent to allow TopAppBar to color the area
             window.statusBarColor = Color.Transparent.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
@@ -64,6 +83,8 @@ fun RaceLoggerTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        content = content
+        typography = SpeedTypography,
+        shapes = SpeedShapes,
+        content = content,
     )
 }

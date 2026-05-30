@@ -43,7 +43,7 @@ Phases A–D deliver the redesigned, fully tappable app (with placeholders); E�
 feature real; G cleans up.
 
 ## Progress checklist
-- [ ] A1 Green color scheme · [ ] A2 Remove dynamic color · [ ] A3 Typography · [ ] A4 Shape/dimension tokens · [ ] A5 Shared components
+- [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [ ] B1 Four-tab destinations · [ ] B2 Nav graph with all routes
 - [ ] C1 Settings keys · [ ] C2 Units formatting · [ ] C3 Dark-theme wiring
 - [ ] D1 Ride/Home · [ ] D2 Live HUD · [ ] D3 Summary · [ ] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
@@ -56,7 +56,7 @@ feature real; G cleans up.
 # Phase A — Design system foundation
 
 ## A1. Green color scheme
-**Status:** ☐ · **Depends on:** none · **Spec:** §2.1
+**Status:** ☑ · **Depends on:** none · **Spec:** §2.1
 
 Replace the current red/teal/purple schemes with the spec's full **green** light and dark
 `ColorScheme`s. Every role listed in §2.1 must be set: `primary`/`onPrimary`,
@@ -69,13 +69,13 @@ Replace the current red/teal/purple schemes with the spec's full **green** light
 Reference hexes in `spec/design-spec.md` §2.1 and tokens in `spec/design-artifacts/material3.jsx`.
 
 **Acceptance criteria:**
-- [ ] Light and dark `ColorScheme`s contain every role from §2.1 with the exact spec hexes.
-- [ ] No screen or component hard-codes a hex; all colors come from the scheme.
-- [ ] Old red/teal/purple values are gone from the active schemes (cleanup of leftovers can defer to G1).
-- [ ] App builds and renders with the green scheme in both light and dark previews.
+- [x] Light and dark `ColorScheme`s contain every role from §2.1 with the exact spec hexes.
+- [x] No screen or component hard-codes a hex; all colors come from the scheme.
+- [x] Old red/teal/purple values are gone from the active schemes (cleanup of leftovers can defer to G1).
+- [x] App builds and renders with the green scheme in both light and dark previews.
 
 ## A2. Remove dynamic color; make dark an explicit parameter
-**Status:** ☐ · **Depends on:** A1 · **Spec:** §2.1 "Rule", §4.9
+**Status:** ☑ · **Depends on:** A1 · **Spec:** §2.1 "Rule", §4.9
 
 Remove Material You dynamic color from `RaceLoggerTheme`. The composable should take an explicit
 `darkTheme: Boolean` and choose between the two green schemes only — no `dynamicLightColorScheme`,
@@ -85,12 +85,12 @@ passes `isSystemInDarkTheme()`. Keep the existing status-bar `SideEffect` and ed
 **Key files:** `…/ui/theme/Theme.kt`, `…/MainActivity.kt`.
 
 **Acceptance criteria:**
-- [ ] `RaceLoggerTheme` no longer references any dynamic-color API.
-- [ ] Passing `darkTheme = true/false` swaps only colors; layouts/interactions are identical.
-- [ ] Status bar icon contrast still flips correctly with the theme.
+- [x] `RaceLoggerTheme` no longer references any dynamic-color API.
+- [x] Passing `darkTheme = true/false` swaps only colors; layouts/interactions are identical.
+- [x] Status bar icon contrast still flips correctly with the theme.
 
 ## A3. Typography
-**Status:** ☐ · **Depends on:** A1 · **Spec:** §2.2
+**Status:** ☑ · **Depends on:** A1 · **Spec:** §2.2
 
 Add a `Type.kt` defining a Material 3 `Typography` based on **Roboto Flex** (add the font resource;
 fall back to the system sans if bundling is impractical) and map the spec's type scale: hero numerals
@@ -102,13 +102,13 @@ Expose any non-standard styles (e.g. the giant hero numeral) as named text style
 **Key files:** new `…/ui/theme/Type.kt`, `…/ui/theme/Theme.kt`, font resources under `app/src/main/res/font/`.
 
 **Acceptance criteria:**
-- [ ] `Typography` covers display/headline/title/body/label roles per §2.2 with sizes in `sp`.
-- [ ] A reusable hero-numeral style exists for the live-speed / top-speed / distance numerals.
-- [ ] Text scales with the OS font-scale setting (because sizes are `sp`).
-- [ ] `MaterialTheme` uses the new typography app-wide.
+- [x] `Typography` covers display/headline/title/body/label roles per §2.2 with sizes in `sp`.
+- [x] A reusable hero-numeral style exists for the live-speed / top-speed / distance numerals (`SpeedTextStyles`).
+- [x] Text scales with the OS font-scale setting (because sizes are `sp`).
+- [x] `MaterialTheme` uses the new typography app-wide.
 
 ## A4. Shape & dimension tokens
-**Status:** ☐ · **Depends on:** none · **Spec:** §2.4
+**Status:** ☑ · **Depends on:** none · **Spec:** §2.4
 
 Capture the spec's corner-radius scale and spacing as named tokens so screens stop using magic numbers.
 Provide an M3 `Shapes` set plus a small `Dimens`/`Radii` object: radii 28 (hero/large), 24 (export/map),
@@ -119,12 +119,12 @@ horizontal padding and the 56 dp top bar / 72 dp bottom nav heights.
 **Key files:** new `…/ui/theme/Shapes.kt` (and/or `…/ui/theme/Dimens.kt`), `…/ui/theme/Theme.kt`.
 
 **Acceptance criteria:**
-- [ ] All radii, the 16 dp screen padding, and the bar heights from §2.4 exist as named tokens.
-- [ ] `MaterialTheme(shapes = …)` is wired where M3 components consume it.
-- [ ] Later component/screen tasks can reference these tokens (no inline duplicates needed).
+- [x] All radii, the 16 dp screen padding, and the bar heights from §2.4 exist as named tokens (`SpeedDimens`).
+- [x] `MaterialTheme(shapes = …)` is wired where M3 components consume it (`SpeedShapes`).
+- [x] Later component/screen tasks can reference these tokens (no inline duplicates needed).
 
 ## A5. Shared components library
-**Status:** ☐ · **Depends on:** A1, A3, A4 · **Spec:** §2.5
+**Status:** ☑ · **Depends on:** A1, A3, A4 · **Spec:** §2.5
 
 Create a `ui/components/` package with the reusable building blocks, each with an `@Preview`. Components:
 `SpeedTopBar` (56 dp; optional leading `arrow_back`, 22 sp title, optional trailing action icon, `surface`
@@ -142,11 +142,15 @@ Compose `Canvas`, drawing the wave to a progress fraction with a filled leading 
 `spec/design-artifacts/material3.jsx` for `WavyLine` and chip/card/nav visuals.
 
 **Acceptance criteria:**
-- [ ] Each component listed above exists, is theme-driven, and has a working `@Preview`.
-- [ ] `WavyLine` renders a sine wave filled to a `progress` (0..1) param with a leading dot, light+dark.
-- [ ] Selectable chips show the selected/unselected states from §2.5.
-- [ ] `SpeedSwitch` matches the on/off thumb+track spec.
-- [ ] Components use A4 tokens and A3 type styles — no hard-coded colors or radii.
+- [x] Each component listed above exists, is theme-driven, and has a working `@Preview`.
+- [x] `WavyLine` renders a sine wave filled to a `progress` (0..1) param with a leading dot, light+dark.
+- [x] Selectable chips show the selected/unselected states from §2.5 (`SpeedSelectableChip`).
+- [x] `SpeedSwitch` matches the on/off thumb+track spec (primary track / outline track).
+- [x] Components use A4 tokens and A3 type styles — no hard-coded colors or radii.
+
+**Design decision:** Roboto Flex font is not bundled (adds ~1 MB to APK with no runtime variable-font
+support on Android). The system sans-serif (Roboto) is used for all type styles; the sizes and weights
+from §2.2 are applied exactly. Swap in a Roboto Flex download in the G1 cleanup.
 
 ---
 
