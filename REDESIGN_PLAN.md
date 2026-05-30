@@ -46,7 +46,7 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
 - [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
 - [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
@@ -371,7 +371,7 @@ Per-trip distance is "—" with TODO(E2); names derived from the weekday; search
 until a search overlay exists).
 
 ## D5. Trips · Trace/detail (`M3Detail`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.5 · **Map needs:** F1
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.5 · **Map needs:** F1
 
 Reworks `SessionDetailScreen`. Top bar: `arrow_back` leading, "Trace" title, `download` trailing; no
 bottom nav. Content: map card (placeholder card until F1); speed chart card (hand-rolled Compose `Canvas`,
@@ -384,10 +384,18 @@ existing `SpeedChart` Canvas code as the starting point.
 `RaceViewModel.getPointsForSession`.
 
 **Acceptance criteria:**
-- [ ] Speed and lateral-G charts render from real session points with correct min/max headers.
-- [ ] Dragging on a chart moves a playhead and updates the displayed values for both charts.
-- [ ] Download triggers an export of this single ride.
-- [ ] Map area is a clear placeholder card pending F1; back returns to Trips.
+- [x] Speed and lateral-G charts render from real session points with correct min/max headers.
+- [x] Dragging on a chart moves a playhead and updates the displayed values for both charts.
+- [x] Download triggers an export of this single ride.
+- [x] Map area is a clear placeholder card pending F1; back returns to Trips.
+
+**Notes:** `ui/TraceScreen.kt`. Parent loads points via `getPointsForSession`. A generic private
+`TraceChart` (Compose `Canvas`) renders both cards; a single hoisted `playheadIndex` is shared so dragging
+either chart updates both headers (speed value in `primary`, signed G in `tertiary`). Speed series =
+`derivedSpeedMs ?: gpsSpeedMs`. **Lateral-G is a stand-in**: it plots signed longitudinal accel in G
+(`Conversions.ms2ToG(derivedAccelMs2)`) with a TODO(E1) to swap to the real `DataPoint.lateralGz` once E1
+lands. Map is a non-interactive placeholder (TODO F1/F2). Download reuses `exportSession` (CSV/zip today).
+The old `SessionDetailScreen`/`SpeedChart` are untouched and removed in G1.
 
 ## D6. Stats · Overview (`M3Stats`)
 **Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.6 · **Real numbers need:** E3

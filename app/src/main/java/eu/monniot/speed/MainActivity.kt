@@ -51,9 +51,10 @@ import eu.monniot.speed.ui.SegmentsPlaceholder
 import eu.monniot.speed.ui.SettingsPlaceholder
 import eu.monniot.speed.ui.StatsPlaceholder
 import eu.monniot.speed.ui.SummaryScreen
-import eu.monniot.speed.ui.TracePlaceholder
+import eu.monniot.speed.ui.TraceScreen
 import eu.monniot.speed.ui.TripsFilter
 import eu.monniot.speed.ui.TripsScreen
+import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.Session
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
@@ -252,8 +253,10 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         }
         composable(Routes.TRACE) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
-            TracePlaceholder(
-                sessionId = sessionId,
+            var points by remember(sessionId) { mutableStateOf<List<DataPoint>>(emptyList()) }
+            LaunchedEffect(sessionId) { points = viewModel.getPointsForSession(sessionId) }
+            TraceScreen(
+                points = points,
                 onBack = { navController.popBackStack() },
                 onDownload = { viewModel.exportSession(sessionId) },
             )

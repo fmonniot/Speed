@@ -9,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DateRange
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.MaterialTheme
@@ -51,29 +50,7 @@ private fun PlaceholderColumn(
 
 // Ride · Summary (§4.3) is the real screen SummaryScreen (D3) — no placeholder needed.
 
-// --- Trips · Trace (§4.5) ---
-@Composable
-fun TracePlaceholder(
-    sessionId: String,
-    onBack: () -> Unit,
-    onDownload: () -> Unit,
-) {
-    Scaffold(
-        topBar = {
-            SpeedTopBar(
-                title = "Trace",
-                onBack = onBack,
-                trailingIcon = Icons.Rounded.Download,
-                onTrailingAction = onDownload,
-            )
-        },
-    ) { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Trace · $sessionId", style = MaterialTheme.typography.headlineSmall)
-            Text("Map + speed/G charts pending (D5/F1).", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
+// Trips · Trace (§4.5) is the real screen TraceScreen (D5) — no placeholder needed.
 
 // --- Stats · Overview (§4.6) ---
 @Composable
