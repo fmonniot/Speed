@@ -13,7 +13,6 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -71,32 +70,7 @@ fun TripsPlaceholder(
     }
 }
 
-// --- Ride · Summary (§4.3) ---
-@Composable
-fun SummaryPlaceholder(
-    sessionId: String,
-    onBack: () -> Unit,
-    onShare: () -> Unit,
-    onOpenTrace: (String) -> Unit,
-    onOpenSegments: () -> Unit,
-) {
-    Scaffold(
-        topBar = {
-            SpeedTopBar(
-                title = "Trip summary",
-                onBack = onBack,
-                trailingIcon = Icons.Rounded.Share,
-                onTrailingAction = onShare,
-            )
-        },
-    ) { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Summary · $sessionId", style = MaterialTheme.typography.headlineSmall)
-            SpeedFullWidthButton(onClick = { onOpenTrace(sessionId) }, label = "Open trace (top-speed moment)")
-            SpeedFullWidthButton(onClick = onOpenSegments, label = "Segments with a PB this ride")
-        }
-    }
-}
+// Ride · Summary (§4.3) is the real screen SummaryScreen (D3) — no placeholder needed.
 
 // --- Trips · Trace (§4.5) ---
 @Composable

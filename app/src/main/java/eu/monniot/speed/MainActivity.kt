@@ -27,6 +27,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.view.WindowCompat
@@ -44,9 +47,10 @@ import eu.monniot.speed.ui.SegmentDetailPlaceholder
 import eu.monniot.speed.ui.SegmentsPlaceholder
 import eu.monniot.speed.ui.SettingsPlaceholder
 import eu.monniot.speed.ui.StatsPlaceholder
-import eu.monniot.speed.ui.SummaryPlaceholder
+import eu.monniot.speed.ui.SummaryScreen
 import eu.monniot.speed.ui.TracePlaceholder
 import eu.monniot.speed.ui.TripsPlaceholder
+import eu.monniot.speed.data.Session
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -194,11 +198,27 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         }
         composable(Routes.SUMMARY) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
-            SummaryPlaceholder(
-                sessionId = sessionId,
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            var session by remember(sessionId) { mutableStateOf<Session?>(null) }
+            LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }
+            // NEW PB when this session's top speed beats every other recorded session (E5 will
+            // add the per-segment PB count; this is the all-time top-speed PB for the badge).
+            val topSpeed = session?.maxSpeedMs
+            val isNewPb = topSpeed != null &&
+                sessions.filter { it.sessionId != sessionId }.all { (it.maxSpeedMs ?: 0f) < topSpeed }
+            SummaryScreen(
+                session = session,
+                isNewPb = isNewPb,
+                maxLateralG = null,
+                maxLeanDeg = null,
+                distanceM = null,
+                avgSpeedMs = null,
+                hardBrakeG = null,
+                movingPercent = null,
+                segmentPbCount = null,
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
-                onOpenTrace = { id -> navController.navigate(Routes.trace(id)) },
+                onOpenTrace = { navController.navigate(Routes.trace(sessionId)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
             )
         }
