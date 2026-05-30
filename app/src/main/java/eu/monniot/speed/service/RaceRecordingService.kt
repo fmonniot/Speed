@@ -57,6 +57,10 @@ class RaceRecordingService : LifecycleService() {
     
     private var wakeLock: PowerManager.WakeLock? = null
 
+    // Auto-pause (§4.9): when on, stationary points are not persisted so the recorded track and
+    // stats reflect moving time only. Mirrored from the setting flow; read on the fusion thread.
+    @Volatile private var autoPauseEnabled = false
+
     private var batteryVoltageMv: Int = 0
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -73,6 +77,10 @@ class RaceRecordingService : LifecycleService() {
         const val ACTION_STOP = "ACTION_STOP"
         const val CHANNEL_ID = "race_recording"
         const val NOTIFICATION_ID = 1
+
+        // Below this fused speed (m/s) the rider is treated as stationary for auto-pause.
+        // Matches SessionStatsComputer's "moving" cutoff so distance/moving% stay consistent.
+        private const val AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5f
 
         private val _state = MutableStateFlow(ServiceState())
         val state: StateFlow<ServiceState> = _state.asStateFlow()
@@ -125,22 +133,31 @@ class RaceRecordingService : LifecycleService() {
                         )
                     }
 
-                    // Save to DB and update recording stats if recording
+                    // Save to DB and update recording stats if recording. When auto-pause is on,
+                    // skip persisting points captured while stationary so the session pauses itself.
                     if (_state.value.isRecording) {
-                        repository.insertDataPoint(point)
-                        _state.update { 
-                            it.copy(
-                                latestPoint = point,
-                                pointCount = it.pointCount + 1,
-                                elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
-                            )
-                        }
-                        if (_state.value.pointCount % 10 == 0) {
-                            updateNotification(point)
+                        val stationary = (point.derivedSpeedMs ?: 0f) < AUTO_PAUSE_SPEED_THRESHOLD_MS
+                        if (!(autoPauseEnabled && stationary)) {
+                            repository.insertDataPoint(point)
+                            _state.update {
+                                it.copy(
+                                    latestPoint = point,
+                                    pointCount = it.pointCount + 1,
+                                    elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
+                                )
+                            }
+                            if (_state.value.pointCount % 10 == 0) {
+                                updateNotification(point)
+                            }
                         }
                     }
                 }
             }
+        }
+
+        // Keep the auto-pause flag in sync with the setting (read on the fusion thread above).
+        lifecycleScope.launch {
+            settingsRepository.autoPause.collect { autoPauseEnabled = it }
         }
 
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -222,10 +239,16 @@ class RaceRecordingService : LifecycleService() {
     }
 
     private fun startSensors() {
-        gpsCollector.start()
-        imuCollector.start()
-        _state.update { it.copy(isSensorsEnabled = true) }
+        // startForeground must run promptly; read the rate settings and start the collectors on a
+        // coroutine (the collectors gate on _isActive, so a few ms of latency is harmless).
         startForeground(NOTIFICATION_ID, createNotification("Sensors active. This will drain your battery."))
+        lifecycleScope.launch {
+            val gpsHz = settingsRepository.gpsRateHz.first().coerceAtLeast(1)
+            val imuHz = settingsRepository.imuRateHz.first().coerceAtLeast(1)
+            gpsCollector.start(intervalMs = (1000L / gpsHz).coerceAtLeast(1L))
+            imuCollector.start(samplingPeriodUs = 1_000_000 / imuHz)
+            _state.update { it.copy(isSensorsEnabled = true) }
+        }
     }
 
     private fun stopSensors() {

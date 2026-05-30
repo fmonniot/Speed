@@ -37,14 +37,16 @@ class ImuCollector(
     private var rotationMatrix = FloatArray(9)
     private var lastRotationVector: FloatArray? = null
 
-    fun start() {
+    // samplingPeriodUs is either a SensorManager.SENSOR_DELAY_* constant or an explicit microsecond
+    // period derived from the IMU-rate setting (1_000_000 / Hz). The platform treats it as a hint.
+    fun start(samplingPeriodUs: Int = SensorManager.SENSOR_DELAY_GAME) {
         if (_isActive.value) return
-        
+
         val accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         val rotVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
-        sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
-        sensorManager.registerListener(this, rotVec, SensorManager.SENSOR_DELAY_GAME)
+        sensorManager.registerListener(this, accel, samplingPeriodUs)
+        sensorManager.registerListener(this, rotVec, samplingPeriodUs)
         _isActive.value = true
     }
 
