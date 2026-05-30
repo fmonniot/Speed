@@ -12,7 +12,6 @@ import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -48,27 +47,7 @@ private fun PlaceholderColumn(
 // Ride · Home (§4.1) and Ride · Live HUD (§4.2) are the real screens RideHomeScreen / LiveHudScreen
 // (D1/D2) — no placeholders needed.
 
-// --- Trips · List (§4.4) ---
-@Composable
-fun TripsPlaceholder(
-    onSearch: () -> Unit,
-    onOpenSummary: (String) -> Unit,
-) {
-    Scaffold(
-        topBar = {
-            SpeedTopBar(
-                title = "Trips",
-                trailingIcon = Icons.Rounded.Search,
-                onTrailingAction = onSearch,
-            )
-        },
-    ) { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Trips list", style = MaterialTheme.typography.headlineSmall)
-            SpeedFullWidthButton(onClick = { onOpenSummary(SAMPLE_ID) }, label = "Open a trip summary")
-        }
-    }
-}
+// Trips · List (§4.4) is the real screen TripsScreen (D4) — no placeholder needed.
 
 // Ride · Summary (§4.3) is the real screen SummaryScreen (D3) — no placeholder needed.
 

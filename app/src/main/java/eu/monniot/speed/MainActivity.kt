@@ -36,11 +36,14 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import eu.monniot.speed.ui.ExportPlaceholder
+import eu.monniot.speed.ui.isThisWeek
 import eu.monniot.speed.ui.LiveHudScreen
 import eu.monniot.speed.ui.RideHomeScreen
 import eu.monniot.speed.ui.SegmentDetailPlaceholder
@@ -49,7 +52,8 @@ import eu.monniot.speed.ui.SettingsPlaceholder
 import eu.monniot.speed.ui.StatsPlaceholder
 import eu.monniot.speed.ui.SummaryScreen
 import eu.monniot.speed.ui.TracePlaceholder
-import eu.monniot.speed.ui.TripsPlaceholder
+import eu.monniot.speed.ui.TripsFilter
+import eu.monniot.speed.ui.TripsScreen
 import eu.monniot.speed.data.Session
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
@@ -96,6 +100,9 @@ object Routes {
     const val LIVE = "live"
     const val SUMMARY = "summary/{sessionId}"
     const val TRIPS = "trips"
+    // Trips accepts an optional ?filter= so the Ride "This week" card can deep-link pre-filtered.
+    // Navigating to bare "trips" (bottom nav) resolves to this pattern with the default "all".
+    const val TRIPS_PATTERN = "trips?filter={filter}"
     const val TRACE = "trace/{sessionId}"
     const val STATS = "stats"
     const val SEGMENTS = "segments"
@@ -106,6 +113,7 @@ object Routes {
     fun summary(id: String) = "summary/$id"
     fun trace(id: String) = "trace/$id"
     fun segment(id: String) = "segment/$id"
+    fun tripsThisWeek() = "trips?filter=week"
 
     // Routes that show the bottom nav. Sub-screens / full-bleed routes hide it
     // (Live, Summary, Trace, Segment detail, Export) per §4 / B1.
@@ -175,7 +183,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                     navController.navigate(Routes.LIVE)
                 },
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
-                onOpenTrips = { navController.navigate(Routes.TRIPS) },
+                onOpenTrips = { navController.navigate(Routes.tripsThisWeek()) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
             )
         }
@@ -222,8 +230,22 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
             )
         }
-        composable(Routes.TRIPS) {
-            TripsPlaceholder(
+        composable(
+            route = Routes.TRIPS_PATTERN,
+            arguments = listOf(navArgument("filter") {
+                type = NavType.StringType
+                defaultValue = "all"
+            }),
+        ) { backStackEntry ->
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            val filter = if (backStackEntry.arguments?.getString("filter") == "week") {
+                TripsFilter.THIS_WEEK
+            } else {
+                TripsFilter.ALL
+            }
+            TripsScreen(
+                sessions = sessions,
+                initialFilter = filter,
                 onSearch = {},
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
             )
@@ -281,9 +303,11 @@ fun SpeedAppShell(
     onTabSelected: (MainDestination) -> Unit,
     content: @Composable () -> Unit,
 ) {
-    val showNav = currentRoute in Routes.bottomBar
+    // Strip any optional query (e.g. "trips?filter=week") before matching nav membership.
+    val baseRoute = currentRoute?.substringBefore('?')
+    val showNav = baseRoute in Routes.bottomBar
     // Segment list keeps Stats highlighted (§4.7).
-    val selectedRoute = if (currentRoute == Routes.SEGMENTS) Routes.STATS else currentRoute
+    val selectedRoute = if (baseRoute == Routes.SEGMENTS) Routes.STATS else baseRoute
 
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.weight(1f)) {
@@ -302,15 +326,6 @@ fun SpeedAppShell(
             )
         }
     }
-}
-
-// True when the timestamp falls in the current calendar week (used for the Ride home
-// "This week" count). Real aggregate queries arrive in E3.
-private fun isThisWeek(timeMs: Long): Boolean {
-    val now = java.util.Calendar.getInstance()
-    val then = java.util.Calendar.getInstance().apply { timeInMillis = timeMs }
-    return now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) &&
-        now.get(java.util.Calendar.WEEK_OF_YEAR) == then.get(java.util.Calendar.WEEK_OF_YEAR)
 }
 
 enum class MainDestination(

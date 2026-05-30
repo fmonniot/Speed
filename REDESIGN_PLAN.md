@@ -46,7 +46,7 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [ ] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
 - [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
 - [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
@@ -347,7 +347,7 @@ the segment-PB count are "—" with TODO(E1/E2/E5) until those land. Share reuse
 segment-row navigate to `trace/{id}` / `segments`. Name derived from the weekday until a name field exists.
 
 ## D4. Trips · List (`M3History`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.4
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.4
 
 Reworks `SessionsScreen`. Top bar: "Trips" title, `search` trailing; bottom nav active = Trips. Content:
 search bar whose placeholder shows the total session count; filter chips (All selected / This week —
@@ -358,10 +358,17 @@ bottom nav switches. Support arriving here pre-filtered to "this week" (from D1'
 **Key files:** new `…/ui/TripsScreen.kt` (replacing `SessionsScreen.kt`); `RaceViewModel.sessions`.
 
 **Acceptance criteria:**
-- [ ] Search bar shows real total count; filter chips switch the list scope in place.
-- [ ] Rows show name/date/distance/top-speed and open the correct Summary on tap.
-- [ ] Deep-link/argument to open pre-filtered to "this week" works.
-- [ ] Distances/speeds formatted via C2.
+- [x] Search bar shows real total count; filter chips switch the list scope in place.
+- [x] Rows show name/date/distance/top-speed and open the correct Summary on tap.
+- [x] Deep-link/argument to open pre-filtered to "this week" works.
+- [x] Distances/speeds formatted via C2.
+
+**Notes:** `ui/TripsScreen.kt` (+ `TripsFilter` enum). Rows reuse `ListRow`; `isThisWeek` promoted to a
+shared helper in `ui/DateTimeUtils.kt` (used by both Trips filter and the Ride home count). Deep-link:
+route is `trips?filter={filter}` (default "all"); the Ride "This week" card navigates `trips?filter=week`,
+and `SpeedAppShell` strips the query before bottom-nav matching so the bar still shows + highlights Trips.
+Per-trip distance is "—" with TODO(E2); names derived from the weekday; search bar is tap-to-open (no-op
+until a search overlay exists).
 
 ## D5. Trips · Trace/detail (`M3Detail`)
 **Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.5 · **Map needs:** F1
