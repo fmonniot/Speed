@@ -233,9 +233,10 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
             var session by remember(sessionId) { mutableStateOf<Session?>(null) }
             LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }
-            // NEW PB when this session's top speed beats every other recorded session.
+            // NEW PB when this session's top speed beats every other recorded session. Require the
+            // sessions list to be loaded first, otherwise all{} over an empty list flashes a PB.
             val topSpeed = session?.maxSpeedMs
-            val isNewPb = topSpeed != null &&
+            val isNewPb = topSpeed != null && sessions.isNotEmpty() &&
                 sessions.filter { it.sessionId != sessionId }.all { (it.maxSpeedMs ?: 0f) < topSpeed }
             // E5: count of segments where this ride set a PB.
             var segmentPbCount by remember(sessionId) { mutableStateOf<Int?>(null) }
