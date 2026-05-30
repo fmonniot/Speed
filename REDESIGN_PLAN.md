@@ -46,7 +46,7 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [ ] D1 Ride/Home · [ ] D2 Live HUD · [ ] D3 Summary · [ ] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
+- [x] D1 Ride/Home · [x] D2 Live HUD · [ ] D3 Summary · [ ] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
 - [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
 - [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
@@ -270,7 +270,7 @@ that writes the key is built in D9.
 > elements non-interactive.
 
 ## D1. Ride · Ready/Home (`M3Idle`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.1
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.1
 
 Build the pre-ride home: "Ready to ride" heading; status subtext combining sensor-readiness with the
 configured GPS rate (from C1); three **decorative** sensor chips (GPS fix + satellite count, IMU state,
@@ -283,13 +283,19 @@ and the **Record** extended FAB. Wire interactions per §4.1: last-ride card →
 **Key files:** new `…/ui/RideHomeScreen.kt`; `…/viewmodel/RaceViewModel.kt`; DAO aggregates (stub→E3).
 
 **Acceptance criteria:**
-- [ ] All §4.1 content present; sensor chips reflect live `serviceState` and are non-interactive.
-- [ ] Each interaction from the §4.1 table navigates/acts correctly (FAB starts recording → Live HUD).
-- [ ] Metrics not yet computed show a clear placeholder, not a fake number.
-- [ ] Speeds/distances formatted via C2 per the Units setting.
+- [x] All §4.1 content present; sensor chips reflect live `serviceState` and are non-interactive.
+- [x] Each interaction from the §4.1 table navigates/acts correctly (FAB starts recording → Live HUD).
+- [x] Metrics not yet computed show a clear placeholder, not a fake number.
+- [x] Speeds/distances formatted via C2 per the Units setting.
+
+**Notes:** `ui/RideHomeScreen.kt`. Takes plain state (`ServiceState`, `gpsRateHz`, `lastRide`,
+`thisWeekCount`) + nav lambdas; the parent (`SpeedNavHost`) collects flows and derives `lastRide`
+(newest `SessionSummary`) and `thisWeekCount` (calendar-week filter — placeholder until E3). Placeholders
+"—" with TODO(E2/E3) for max lateral G, session distance, and lifetime total distance. Battery % chip is
+"—" (not yet in `ServiceState`). Last-ride name derived from the weekday until a real name field exists.
 
 ## D2. Ride · Live HUD (`M3Live`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.2
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.2
 
 Full-bleed glanceable HUD, **no top bar or bottom nav**, only Stop interactive. Recording banner
 (`errorContainer`: record dot + "Recording · elapsed", right side sampling rate + points captured);
@@ -302,11 +308,18 @@ available; until then read from current accel/placeholder.
 **Key files:** new `…/ui/LiveHudScreen.kt`; `RaceViewModel.serviceState`; `WavyLine` from A5.
 
 **Acceptance criteria:**
-- [ ] Banner, hero (with working `WavyLine` progress), four tiles, and Stop button all present.
-- [ ] Only Stop is interactive; tiles and hero are decorative.
-- [ ] Stop ends the recording and navigates to that session's Summary.
-- [ ] Elapsed time, point count, rate, and speed update live from `serviceState`.
-- [ ] No top bar / bottom nav shown on this route.
+- [x] Banner, hero (with working `WavyLine` progress), four tiles, and Stop button all present.
+- [x] Only Stop is interactive; tiles and hero are decorative.
+- [x] Stop ends the recording and navigates to that session's Summary.
+- [x] Elapsed time, point count, rate, and speed update live from `serviceState`.
+- [x] No top bar / bottom nav shown on this route.
+
+**Notes:** `ui/LiveHudScreen.kt`, full-bleed `systemBarsPadding`. `WavyLine` fraction = current ÷
+top-speed-so-far (tracked locally since `ServiceState` has no running top). G-force tile uses
+`currentG` (total accel magnitude in G) as a stand-in — TODO(E1) for true lateral G; lean tile and the
+hero "avg" footer are "—" pending E1/E2. Accel & altitude use real `ServiceState`/`latestPoint` data.
+Stop: parent captures `serviceState.sessionId` before `stopRecording()`, then pops `live` and pushes
+`summary/{id}`. Lean icon falls back to `Icons.Filled.TwoWheeler` (no `Rounded.Motorcycle`).
 
 ## D3. Ride · Summary (`M3Summary`)
 **Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.3 · **Real numbers need:** E2, E5

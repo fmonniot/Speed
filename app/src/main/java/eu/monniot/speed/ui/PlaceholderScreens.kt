@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Search
@@ -21,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import eu.monniot.speed.ui.components.SpeedExtendedFab
 import eu.monniot.speed.ui.components.SpeedFullWidthButton
 import eu.monniot.speed.ui.components.SpeedTopBar
 import eu.monniot.speed.ui.theme.SpeedDimens
@@ -48,48 +46,8 @@ private fun PlaceholderColumn(
     ) { content() }
 }
 
-// --- Ride · Home (§4.1) — bottom nav active = Ride. Replaced by D1 RideHomeScreen. ---
-@Composable
-fun RidePlaceholder(
-    onRecord: () -> Unit,
-    onOpenSummary: (String) -> Unit,
-    onOpenTrips: () -> Unit,
-    onOpenStats: () -> Unit,
-) {
-    Scaffold(
-        topBar = { SpeedTopBar(title = "Speed") },
-        floatingActionButton = {
-            SpeedExtendedFab(
-                onClick = onRecord,
-                label = "Record",
-                icon = Icons.Rounded.FiberManualRecord,
-            )
-        },
-    ) { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Ready to ride", style = MaterialTheme.typography.headlineMedium)
-            SpeedFullWidthButton(onClick = { onOpenSummary(SAMPLE_ID) }, label = "Last ride summary")
-            SpeedFullWidthButton(onClick = onOpenTrips, label = "This week")
-            SpeedFullWidthButton(onClick = onOpenStats, label = "Total")
-        }
-    }
-}
-
-// --- Ride · Live HUD (§4.2) — no top bar / no nav. Replaced by D2 LiveHudScreen. ---
-@Composable
-fun LivePlaceholder(
-    onStop: (String) -> Unit,
-) {
-    Scaffold { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Live HUD", style = MaterialTheme.typography.headlineSmall)
-            SpeedFullWidthButton(
-                onClick = { onStop(SAMPLE_ID) },
-                label = "Stop",
-            )
-        }
-    }
-}
+// Ride · Home (§4.1) and Ride · Live HUD (§4.2) are the real screens RideHomeScreen / LiveHudScreen
+// (D1/D2) — no placeholders needed.
 
 // --- Trips · List (§4.4) ---
 @Composable

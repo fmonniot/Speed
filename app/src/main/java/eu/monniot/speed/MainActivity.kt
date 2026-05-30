@@ -38,8 +38,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import eu.monniot.speed.ui.ExportPlaceholder
-import eu.monniot.speed.ui.LivePlaceholder
-import eu.monniot.speed.ui.RidePlaceholder
+import eu.monniot.speed.ui.LiveHudScreen
+import eu.monniot.speed.ui.RideHomeScreen
 import eu.monniot.speed.ui.SegmentDetailPlaceholder
 import eu.monniot.speed.ui.SegmentsPlaceholder
 import eu.monniot.speed.ui.SettingsPlaceholder
@@ -158,7 +158,14 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         modifier = Modifier.fillMaxSize(),
     ) {
         composable(Routes.RIDE) {
-            RidePlaceholder(
+            val serviceState by viewModel.serviceState.collectAsState()
+            val gpsRateHz by viewModel.gpsRateHz.collectAsState()
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            RideHomeScreen(
+                serviceState = serviceState,
+                gpsRateHz = gpsRateHz,
+                lastRide = sessions.firstOrNull(),
+                thisWeekCount = sessions.count { isThisWeek(it.startTimeMs) },
                 onRecord = {
                     viewModel.startRecording()
                     navController.navigate(Routes.LIVE)
@@ -169,8 +176,14 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             )
         }
         composable(Routes.LIVE) {
-            LivePlaceholder(
-                onStop = { id ->
+            val serviceState by viewModel.serviceState.collectAsState()
+            val gpsRateHz by viewModel.gpsRateHz.collectAsState()
+            LiveHudScreen(
+                serviceState = serviceState,
+                gpsRateHz = gpsRateHz,
+                onStop = {
+                    // Capture the session id before stopRecording clears it from state.
+                    val id = viewModel.serviceState.value.sessionId ?: ""
                     viewModel.stopRecording()
                     // Replace Live with the Summary so Back doesn't return to the HUD.
                     navController.navigate(Routes.summary(id)) {
@@ -269,6 +282,15 @@ fun SpeedAppShell(
             )
         }
     }
+}
+
+// True when the timestamp falls in the current calendar week (used for the Ride home
+// "This week" count). Real aggregate queries arrive in E3.
+private fun isThisWeek(timeMs: Long): Boolean {
+    val now = java.util.Calendar.getInstance()
+    val then = java.util.Calendar.getInstance().apply { timeInMillis = timeMs }
+    return now.get(java.util.Calendar.YEAR) == then.get(java.util.Calendar.YEAR) &&
+        now.get(java.util.Calendar.WEEK_OF_YEAR) == then.get(java.util.Calendar.WEEK_OF_YEAR)
 }
 
 enum class MainDestination(
