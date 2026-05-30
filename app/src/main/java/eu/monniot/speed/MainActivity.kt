@@ -9,32 +9,48 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Leaderboard
+import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.*
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Leaderboard
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import eu.monniot.speed.ui.RaceScreen
-import eu.monniot.speed.ui.SessionDetailScreen
-import eu.monniot.speed.ui.SessionsScreen
-import eu.monniot.speed.ui.SettingsScreen
+import eu.monniot.speed.ui.ExportPlaceholder
+import eu.monniot.speed.ui.LivePlaceholder
+import eu.monniot.speed.ui.RidePlaceholder
+import eu.monniot.speed.ui.SegmentDetailPlaceholder
+import eu.monniot.speed.ui.SegmentsPlaceholder
+import eu.monniot.speed.ui.SettingsPlaceholder
+import eu.monniot.speed.ui.StatsPlaceholder
+import eu.monniot.speed.ui.SummaryPlaceholder
+import eu.monniot.speed.ui.TracePlaceholder
+import eu.monniot.speed.ui.TripsPlaceholder
+import eu.monniot.speed.ui.components.SpeedBottomNav
+import eu.monniot.speed.ui.components.SpeedNavItem
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
+import eu.monniot.speed.util.LocalUnits
 import eu.monniot.speed.viewmodel.RaceViewModel
 
 class MainActivity : ComponentActivity() {
@@ -44,9 +60,11 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
-            RaceLoggerTheme(darkTheme = isSystemInDarkTheme()) {
-                val viewModel: RaceViewModel = viewModel()
+            val viewModel: RaceViewModel = viewModel()
+            // C3: theme follows the dark_theme preference, not the system setting.
+            val darkTheme by viewModel.darkTheme.collectAsState()
 
+            RaceLoggerTheme(darkTheme = darkTheme) {
                 LaunchedEffect(viewModel.exportUri) {
                     viewModel.exportUri.collect { uri ->
                         shareFile(uri)
@@ -60,12 +78,34 @@ class MainActivity : ComponentActivity() {
 
     private fun shareFile(uri: Uri) {
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "*/*" // Changed to support multiple types (CSV and potentially others)
+            type = "*/*"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(intent, "Share Race Session Data"))
     }
+}
+
+// Route names for the whole nav graph (B2).
+object Routes {
+    const val RIDE = "ride"
+    const val LIVE = "live"
+    const val SUMMARY = "summary/{sessionId}"
+    const val TRIPS = "trips"
+    const val TRACE = "trace/{sessionId}"
+    const val STATS = "stats"
+    const val SEGMENTS = "segments"
+    const val SEGMENT = "segment/{segmentId}"
+    const val SETTINGS = "settings"
+    const val EXPORT = "export"
+
+    fun summary(id: String) = "summary/$id"
+    fun trace(id: String) = "trace/$id"
+    fun segment(id: String) = "segment/$id"
+
+    // Routes that show the bottom nav. Sub-screens / full-bleed routes hide it
+    // (Live, Summary, Trace, Segment detail, Export) per §4 / B1.
+    val bottomBar = setOf(RIDE, TRIPS, STATS, SEGMENTS, SETTINGS)
 }
 
 @Composable
@@ -88,86 +128,157 @@ fun SpeedApp(viewModel: RaceViewModel) {
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = navBackStackEntry?.destination?.route
 
-    SpeedAppShell(
-        currentDestination = currentDestination,
-        onNavigate = { destination ->
-            navController.navigate(destination.route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
-    ) {
-        NavHost(
-            navController = navController,
-            startDestination = MainDestination.RACE.route,
-            modifier = Modifier.fillMaxSize()
-        ) {
-            composable(MainDestination.RACE.route) {
-                RaceScreen(
-                    viewModel = viewModel,
-                )
-            }
-            composable(MainDestination.SESSIONS.route) {
-                SessionsScreen(
-                    viewModel = viewModel,
-                    onSessionClick = { sessionId ->
-                        navController.navigate("session_detail/$sessionId")
+    val units by viewModel.units.collectAsState()
+
+    CompositionLocalProvider(LocalUnits provides units) {
+        SpeedAppShell(
+            currentRoute = currentRoute,
+            onTabSelected = { destination ->
+                navController.navigate(destination.route) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
                     }
-                )
-            }
-            composable(MainDestination.SETTINGS.route) {
-                SettingsScreen(viewModel = viewModel)
-            }
-            composable("session_detail/{sessionId}") { backStackEntry ->
-                val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
-                SessionDetailScreen(
-                    sessionId = sessionId,
-                    viewModel = viewModel,
-                    onBack = { navController.popBackStack() }
-                )
-            }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+        ) {
+            SpeedNavHost(navController = navController, viewModel = viewModel)
+        }
+    }
+}
+
+@Composable
+private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewModel) {
+    NavHost(
+        navController = navController,
+        startDestination = Routes.RIDE,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        composable(Routes.RIDE) {
+            RidePlaceholder(
+                onRecord = {
+                    viewModel.startRecording()
+                    navController.navigate(Routes.LIVE)
+                },
+                onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
+                onOpenTrips = { navController.navigate(Routes.TRIPS) },
+                onOpenStats = { navController.navigate(Routes.STATS) },
+            )
+        }
+        composable(Routes.LIVE) {
+            LivePlaceholder(
+                onStop = { id ->
+                    viewModel.stopRecording()
+                    // Replace Live with the Summary so Back doesn't return to the HUD.
+                    navController.navigate(Routes.summary(id)) {
+                        popUpTo(Routes.LIVE) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Routes.SUMMARY) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+            SummaryPlaceholder(
+                sessionId = sessionId,
+                onBack = { navController.popBackStack() },
+                onShare = { viewModel.exportSession(sessionId) },
+                onOpenTrace = { id -> navController.navigate(Routes.trace(id)) },
+                onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
+            )
+        }
+        composable(Routes.TRIPS) {
+            TripsPlaceholder(
+                onSearch = {},
+                onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
+            )
+        }
+        composable(Routes.TRACE) { backStackEntry ->
+            val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
+            TracePlaceholder(
+                sessionId = sessionId,
+                onBack = { navController.popBackStack() },
+                onDownload = { viewModel.exportSession(sessionId) },
+            )
+        }
+        composable(Routes.STATS) {
+            StatsPlaceholder(
+                onDateRange = {},
+                onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
+                onOpenTrips = { navController.navigate(Routes.TRIPS) },
+                onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
+            )
+        }
+        composable(Routes.SEGMENTS) {
+            SegmentsPlaceholder(
+                onBack = { navController.popBackStack() },
+                onAdd = {},
+                onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
+            )
+        }
+        composable(Routes.SEGMENT) { backStackEntry ->
+            val segmentId = backStackEntry.arguments?.getString("segmentId") ?: ""
+            SegmentDetailPlaceholder(
+                segmentId = segmentId,
+                onBack = { navController.popBackStack() },
+                onMore = {},
+                onOpenTrace = { id -> navController.navigate(Routes.trace(id)) },
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsPlaceholder(
+                onHelp = {},
+                onExportAll = { navController.navigate(Routes.EXPORT) },
+            )
+        }
+        composable(Routes.EXPORT) {
+            ExportPlaceholder(
+                onBack = { navController.popBackStack() },
+                onHelp = {},
+            )
         }
     }
 }
 
 @Composable
 fun SpeedAppShell(
-    currentDestination: NavDestination?,
-    onNavigate: (MainDestination) -> Unit,
-    content: @Composable () -> Unit
+    currentRoute: String?,
+    onTabSelected: (MainDestination) -> Unit,
+    content: @Composable () -> Unit,
 ) {
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            MainDestination.entries.forEach { destination ->
-                item(
-                    icon = {
-                        Icon(
-                            destination.icon,
-                            contentDescription = destination.label
-                        )
-                    },
-                    label = { Text(destination.label) },
-                    selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true,
-                    onClick = { onNavigate(destination) }
-                )
-            }
+    val showNav = currentRoute in Routes.bottomBar
+    // Segment list keeps Stats highlighted (§4.7).
+    val selectedRoute = if (currentRoute == Routes.SEGMENTS) Routes.STATS else currentRoute
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.weight(1f)) {
+            content()
         }
-    ) {
-        content()
+        if (showNav) {
+            SpeedBottomNav(
+                items = MainDestination.entries.map {
+                    SpeedNavItem(it.route, it.label, it.icon, it.selectedIcon)
+                },
+                currentRoute = selectedRoute,
+                onNavigate = { route ->
+                    MainDestination.entries.firstOrNull { it.route == route }?.let(onTabSelected)
+                },
+                modifier = Modifier.navigationBarsPadding(),
+            )
+        }
     }
 }
 
 enum class MainDestination(
     val route: String,
     val label: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
 ) {
-    RACE("race", "Race", Icons.Default.Speed),
-    SESSIONS("sessions", "Sessions", Icons.Default.History),
-    SETTINGS("settings", "Settings", Icons.Default.Settings)
+    RIDE(Routes.RIDE, "Ride", Icons.Outlined.Home, Icons.Filled.Home),
+    TRIPS(Routes.TRIPS, "Trips", Icons.Outlined.Route, Icons.Filled.Route),
+    STATS(Routes.STATS, "Stats", Icons.Outlined.Leaderboard, Icons.Filled.Leaderboard),
+    SETTINGS(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 }

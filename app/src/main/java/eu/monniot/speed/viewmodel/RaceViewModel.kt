@@ -9,6 +9,7 @@ import eu.monniot.speed.data.RaceDatabase
 import eu.monniot.speed.data.RaceRepository
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.data.SettingsRepository
+import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
 import eu.monniot.speed.service.ServiceState
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,16 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
 
     val recordRawTraces: StateFlow<Boolean> = settingsRepository.recordRawTraces
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // Redesign settings (C1) exposed for screens (C2/C3, D1/D2).
+    val units: StateFlow<Units> = settingsRepository.units
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Units.METRIC)
+
+    val darkTheme: StateFlow<Boolean> = settingsRepository.darkTheme
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val gpsRateHz: StateFlow<Int> = settingsRepository.gpsRateHz
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_GPS_RATE_HZ)
 
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri

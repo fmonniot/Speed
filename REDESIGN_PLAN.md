@@ -44,8 +44,8 @@ feature real; G cleans up.
 
 ## Progress checklist
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
-- [ ] B1 Four-tab destinations · [ ] B2 Nav graph with all routes
-- [ ] C1 Settings keys · [ ] C2 Units formatting · [ ] C3 Dark-theme wiring
+- [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
+- [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
 - [ ] D1 Ride/Home · [ ] D2 Live HUD · [ ] D3 Summary · [ ] D4 Trips list · [ ] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
 - [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
 - [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
@@ -157,7 +157,7 @@ from §2.2 are applied exactly. Swap in a Roboto Flex download in the G1 cleanup
 # Phase B — Navigation restructure
 
 ## B1. Four-tab destinations
-**Status:** ☐ · **Depends on:** A5 · **Spec:** §1, §2.5
+**Status:** ☑ · **Depends on:** A5 · **Spec:** §1, §2.5
 
 Replace the 3-entry `MainDestination` enum (Race/Sessions/Settings) with the four spec tabs:
 **Ride** (`home`), **Trips** (`route`), **Stats** (`leaderboard`), **Settings** (`settings`) — icons
@@ -168,12 +168,16 @@ Trace, Segment detail, Export (driven by current route).
 **Key files:** `…/MainActivity.kt` (`MainDestination`, `SpeedAppShell`).
 
 **Acceptance criteria:**
-- [ ] Bottom nav shows exactly Ride / Trips / Stats / Settings with the correct icons and active pill.
-- [ ] The bar is hidden on Live HUD, Summary, Trace, Segment detail, and Export routes.
-- [ ] Switching tabs preserves each tab's back stack state.
+- [x] Bottom nav shows exactly Ride / Trips / Stats / Settings with the correct icons and active pill.
+- [x] The bar is hidden on Live HUD, Summary, Trace, Segment detail, and Export routes.
+- [x] Switching tabs preserves each tab's back stack state.
+
+**Notes:** `NavigationSuiteScaffold` replaced by `SpeedBottomNav` (A5) inside a new `SpeedAppShell`.
+Visibility driven by `Routes.bottomBar` (ride/trips/stats/segments/settings); Segment list keeps
+**Stats** highlighted. Outlined/Filled icon pairs feed the active-pill fill.
 
 ## B2. Nav graph with all routes (placeholders)
-**Status:** ☐ · **Depends on:** B1 · **Spec:** §4 (all interaction tables)
+**Status:** ☑ · **Depends on:** B1 · **Spec:** §4 (all interaction tables)
 
 Expand the `NavHost` to every spec destination, each as a minimal placeholder composable wired with the
 correct top bar (via `SpeedTopBar`) and bottom-nav visibility, and the §4 navigation wiring so the whole
@@ -186,17 +190,21 @@ placeholder shows its screen title and buttons/links that navigate per the spec 
 `ui/` temporarily, to be replaced by the D-tasks).
 
 **Acceptance criteria:**
-- [ ] All ten routes exist and are reachable by following the spec's navigation interactions.
-- [ ] Back navigation (`arrow_back`) returns to the correct previous screen on every sub-screen.
-- [ ] Decorative elements present in placeholders are non-interactive.
-- [ ] No crash navigating any path; argument routes (`{sessionId}`, `{segmentId}`) parse correctly.
+- [x] All ten routes exist and are reachable by following the spec's navigation interactions.
+- [x] Back navigation (`arrow_back`) returns to the correct previous screen on every sub-screen.
+- [x] Decorative elements present in placeholders are non-interactive.
+- [x] No crash navigating any path; argument routes (`{sessionId}`, `{segmentId}`) parse correctly.
+
+**Notes:** Routes + nav wiring live in `MainActivity` (`Routes`, `SpeedNavHost`); placeholders in
+`ui/PlaceholderScreens.kt`. Live → Stop pops `live` inclusive then pushes `summary/{id}` so Back from
+Summary doesn't return to the HUD. Ride & Live placeholders are replaced by the real screens in D1/D2.
 
 ---
 
 # Phase C — Display/units plumbing
 
 ## C1. Settings keys
-**Status:** ☐ · **Depends on:** none · **Spec:** §4.9
+**Status:** ☑ · **Depends on:** none · **Spec:** §4.9
 
 Extend `SettingsRepository` (DataStore) with the redesign's settings, mirroring the existing
 flow+setter pattern: `gps_rate_hz` (int, default 10), `imu_rate_hz` (int, default 100),
@@ -207,12 +215,16 @@ with a `suspend` setter. Keep the existing `auto_start_sensors` / `record_raw_tr
 **Key files:** `…/data/SettingsRepository.kt`; a `Units` enum (new `…/data/Units.kt` or in the repo file).
 
 **Acceptance criteria:**
-- [ ] Five new keys exposed as flows with setters and sensible defaults.
-- [ ] `units` round-trips through DataStore as a typed `Units` value.
-- [ ] Existing settings untouched and still working.
+- [x] Five new keys exposed as flows with setters and sensible defaults.
+- [x] `units` round-trips through DataStore as a typed `Units` value.
+- [x] Existing settings untouched and still working.
+
+**Notes:** New `data/Units.kt` enum (stored by `name`, defaults METRIC). Keys added to
+`SettingsRepository`: `gps_rate_hz` (10), `imu_rate_hz` (100), `auto_pause` (false), `units`,
+`dark_theme` (false). `units`/`darkTheme`/`gpsRateHz` also surfaced on `RaceViewModel`.
 
 ## C2. Units-aware formatting
-**Status:** ☐ · **Depends on:** C1 · **Spec:** §4 intro, §5 "Units boundary"
+**Status:** ☑ · **Depends on:** C1 · **Spec:** §4 intro, §5 "Units boundary"
 
 Add display-boundary conversion + formatting keyed off `Units`. Extend `util/Conversions.kt` and add
 `util/UnitFormat.kt` with helpers to convert SI → display (km/h↔mph, km↔mi, m↔ft) and to format speed,
@@ -223,12 +235,16 @@ threading it manually.
 **Key files:** `…/util/Conversions.kt`, new `…/util/UnitFormat.kt`, ViewModel or a `LocalUnits` provider.
 
 **Acceptance criteria:**
-- [ ] Conversion helpers for speed/distance/altitude both directions with unit tests.
-- [ ] Formatting helpers return correctly-labeled strings for Metric and Imperial.
-- [ ] Screens can obtain the active `Units` from one place; storage stays SI.
+- [x] Conversion helpers for speed/distance/altitude both directions with unit tests.
+- [x] Formatting helpers return correctly-labeled strings for Metric and Imperial.
+- [x] Screens can obtain the active `Units` from one place; storage stays SI.
+
+**Notes:** `Conversions` extended with mph/mi/ft both directions. New `util/UnitFormat.kt` formats
+speed/distance/altitude/lateral-G/lean (value + unit + combined). `LocalUnits` CompositionLocal is
+provided from `RaceViewModel.units` in `SpeedApp`. Covered by `UnitFormatTest`.
 
 ## C3. Dark-theme setting wiring
-**Status:** ☐ · **Depends on:** A2, C1 · **Spec:** §4.9
+**Status:** ☑ · **Depends on:** A2, C1 · **Spec:** §4.9
 
 Replace A2's temporary `isSystemInDarkTheme()` source: `MainActivity` collects the `dark_theme` flow and
 passes it into `RaceLoggerTheme(darkTheme = …)`. Toggling the Settings switch (built in D9) must reskin
@@ -237,8 +253,12 @@ the whole app instantly.
 **Key files:** `…/MainActivity.kt`.
 
 **Acceptance criteria:**
-- [ ] App theme follows the `dark_theme` preference, not the system setting.
-- [ ] Changing the preference at runtime re-skins immediately with no restart.
+- [x] App theme follows the `dark_theme` preference, not the system setting.
+- [x] Changing the preference at runtime re-skins immediately with no restart.
+
+**Notes:** `MainActivity` collects `viewModel.darkTheme` (StateFlow over the C1 key) and passes it to
+`RaceLoggerTheme(darkTheme = …)`; emitting a new value recomposes and re-skins. The Settings toggle
+that writes the key is built in D9.
 
 ---
 

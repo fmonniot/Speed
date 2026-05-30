@@ -1,10 +1,8 @@
 package eu.monniot.speed.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.NavDestination
-import eu.monniot.speed.MainDestination
+import eu.monniot.speed.Routes
 import eu.monniot.speed.SpeedAppShell
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.Session
@@ -13,20 +11,13 @@ import eu.monniot.speed.sensor.SatelliteInfo
 import eu.monniot.speed.service.ServiceState
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
 
-@Composable
-private fun mockDestination(route: String): NavDestination = remember(route) {
-    NavDestination("mock").apply {
-        this.route = route
-    }
-}
-
 @Preview(showBackground = true, showSystemUi = true, name = "Race Screen - Ready")
 @Composable
 fun PreviewRaceScreenReady() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.RACE.route),
-            onNavigate = {}
+            currentRoute = Routes.RIDE,
+            onTabSelected = {}
         ) {
             RaceScreenContent(
                 serviceState = ServiceState(
@@ -51,8 +42,8 @@ fun PreviewRaceScreenReady() {
 fun PreviewRaceScreenSensorsDisabled() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.RACE.route),
-            onNavigate = {}
+            currentRoute = Routes.RIDE,
+            onTabSelected = {}
         ) {
             RaceScreenContent(
                 serviceState = ServiceState(
@@ -77,8 +68,8 @@ fun PreviewRaceScreenSensorsDisabled() {
 fun PreviewRaceScreenRecording() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.RACE.route),
-            onNavigate = {}
+            currentRoute = Routes.RIDE,
+            onTabSelected = {}
         ) {
             RaceScreenContent(
                 serviceState = ServiceState(
@@ -104,8 +95,8 @@ fun PreviewRaceScreenRecording() {
 fun PreviewSettingsScreen() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.SETTINGS.route),
-            onNavigate = {}
+            currentRoute = Routes.SETTINGS,
+            onTabSelected = {}
         ) {
             SettingsScreenContent(
                 autoStart = true,
@@ -130,8 +121,8 @@ fun PreviewSessionsScreenPopulated() {
     )
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.SESSIONS.route),
-            onNavigate = {}
+            currentRoute = Routes.TRIPS,
+            onTabSelected = {}
         ) {
             SessionsScreenContent(
                 sessions = mockSessions,
@@ -147,8 +138,8 @@ fun PreviewSessionsScreenPopulated() {
 fun PreviewSessionsScreenEmpty() {
     RaceLoggerTheme {
         SpeedAppShell(
-            currentDestination = mockDestination(MainDestination.SESSIONS.route),
-            onNavigate = {}
+            currentRoute = Routes.TRIPS,
+            onTabSelected = {}
         ) {
             SessionsScreenContent(
                 sessions = emptyList(),
