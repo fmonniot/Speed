@@ -22,6 +22,7 @@ testRunner = "1.7.0"
 mockito = "5.11.0"
 mockito-kotlin = "5.2.1"
 maplibre = "11.8.0"
+robolectric = "4.16"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -67,6 +68,7 @@ androidx-test-runner = { group = "androidx.test", name = "runner", version.ref =
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
 mockito-android = { group = "org.mockito", name = "mockito-android", version.ref = "mockito" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockito-kotlin" }
+robolectric = { group = 'org.robolectric', name = 'robolectric', version.ref = 'robolectric'}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

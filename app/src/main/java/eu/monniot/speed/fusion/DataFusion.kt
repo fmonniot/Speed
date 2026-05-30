@@ -12,7 +12,8 @@ class DataFusion(
     private val gpsFlow: SharedFlow<Location>,
     private val satellitesFlow: StateFlow<SatelliteInfo>,
     private val imuFlow: SharedFlow<ImuSample>,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val _dataPointFlow = MutableSharedFlow<DataPoint>(extraBufferCapacity = 32)
     val dataPointFlow: SharedFlow<DataPoint> = _dataPointFlow
@@ -32,7 +33,7 @@ class DataFusion(
     private val imuSamples = mutableListOf<ImuSample>()
 
     fun start() {
-        scope.launch(Dispatchers.Default) {
+        scope.launch(dispatcher) {
             // Collect IMU samples in real-time
             launch {
                 imuFlow.collect { 
