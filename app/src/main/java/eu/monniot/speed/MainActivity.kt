@@ -42,12 +42,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import eu.monniot.speed.ui.ExportPlaceholder
+import eu.monniot.speed.ui.ExportScreen
 import eu.monniot.speed.ui.isThisWeek
 import eu.monniot.speed.ui.LiveHudScreen
 import eu.monniot.speed.ui.RideHomeScreen
-import eu.monniot.speed.ui.SegmentDetailPlaceholder
-import eu.monniot.speed.ui.SegmentsPlaceholder
+import eu.monniot.speed.ui.SegmentDetailScreen
+import eu.monniot.speed.ui.SegmentListScreen
 import eu.monniot.speed.ui.SettingsScreen
 import eu.monniot.speed.ui.StatsScreen
 import eu.monniot.speed.ui.SummaryScreen
@@ -55,6 +55,7 @@ import eu.monniot.speed.ui.TraceScreen
 import eu.monniot.speed.ui.TripsFilter
 import eu.monniot.speed.ui.TripsScreen
 import eu.monniot.speed.data.DataPoint
+import eu.monniot.speed.data.Segment
 import eu.monniot.speed.data.Session
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
@@ -282,19 +283,33 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             )
         }
         composable(Routes.SEGMENTS) {
-            SegmentsPlaceholder(
+            val segments by viewModel.segmentListItems.collectAsState()
+            SegmentListScreen(
+                segments = segments,
                 onBack = { navController.popBackStack() },
-                onAdd = {},
+                onAdd = {}, // TODO(E6): segment creation flow
+                onSearch = {},
                 onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
             )
         }
         composable(Routes.SEGMENT) { backStackEntry ->
             val segmentId = backStackEntry.arguments?.getString("segmentId") ?: ""
-            SegmentDetailPlaceholder(
-                segmentId = segmentId,
+            var segment by remember(segmentId) { mutableStateOf<Segment?>(null) }
+            LaunchedEffect(segmentId) { segment = viewModel.getSegment(segmentId) }
+            val attempts by viewModel.getAttemptsForSegment(segmentId)
+                .collectAsState(initial = emptyList())
+            SegmentDetailScreen(
+                segment = segment,
+                attempts = attempts,
                 onBack = { navController.popBackStack() },
-                onMore = {},
-                onOpenTrace = { id -> navController.navigate(Routes.trace(id)) },
+                onRename = {}, // TODO: rename dialog
+                onSetGoal = { segment?.let { viewModel.setSegmentGoal(it, !it.isGoal) } },
+                onDelete = {
+                    viewModel.deleteSegment(segmentId)
+                    navController.popBackStack()
+                },
+                onShare = {},
+                onOpenTrace = { sessionId -> navController.navigate(Routes.trace(sessionId)) },
             )
         }
         composable(Routes.SETTINGS) {
@@ -328,9 +343,16 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             )
         }
         composable(Routes.EXPORT) {
-            ExportPlaceholder(
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            val totalPoints = sessions.sumOf { it.pointCount.toLong() }
+            ExportScreen(
+                tripCount = sessions.size,
+                fullDatasetBytes = totalPoints * 120L,
                 onBack = { navController.popBackStack() },
                 onHelp = {},
+                onExport = { _, _, _, _ ->
+                    // TODO(F5): run the real export pipeline honoring format/scope/include.
+                },
             )
         }
     }

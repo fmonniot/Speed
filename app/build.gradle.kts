@@ -75,6 +75,9 @@ dependencies {
 
     implementation(libs.androidx.datastore.preferences)
 
+    // F1: MapLibre (open-source, no API key) for the ride-trace map.
+    implementation(libs.maplibre.android.sdk)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockito.core)

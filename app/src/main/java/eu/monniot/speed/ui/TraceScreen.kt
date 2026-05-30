@@ -37,10 +37,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import eu.monniot.speed.data.DataPoint
+import eu.monniot.speed.ui.components.MapTrackCard
 import eu.monniot.speed.ui.components.SpeedTopBar
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
 import eu.monniot.speed.ui.theme.SpeedDimens
-import eu.monniot.speed.util.Conversions
 import eu.monniot.speed.util.LocalUnits
 import eu.monniot.speed.util.UnitFormat
 import java.util.Locale
@@ -65,10 +65,13 @@ fun TraceScreen(
     val speedSeries: List<Float> = remember(points) {
         points.map { it.derivedSpeedMs ?: it.gpsSpeedMs ?: 0f }
     }
-    // TODO(E1): replace stand-in longitudinal accel with true DataPoint.lateralGz
+    // E1 landed: plot the real signed lateral G (+ = rider's right). Points before E1 (older
+    // recordings) have null lateralGz and contribute 0.
     val gSeries: List<Float> = remember(points) {
-        points.map { Conversions.ms2ToG(it.derivedAccelMs2 ?: 0f) }
+        points.map { it.lateralGz ?: 0f }
     }
+    // Top speed for the map chip label.
+    val topSpeedMs: Float = remember(points) { speedSeries.maxOrNull() ?: 0f }
 
     Scaffold(
         topBar = {
@@ -89,24 +92,16 @@ fun TraceScreen(
                 .padding(horizontal = SpeedDimens.screenPadding)
                 .padding(bottom = SpeedDimens.screenPadding),
         ) {
-            // ---- Map placeholder card ----
-            // TODO(F1/F2): real map + full-screen tap
+            // ---- Map card (F1) ----
+            // TODO(F2): tap opens a full-screen interactive map.
             Spacer(modifier = Modifier.height(12.dp))
-            Surface(
-                shape = RoundedCornerShape(SpeedDimens.radiusExportMap),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Map — available after MapLibre (F1)",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            MapTrackCard(
+                points = points,
+                topSpeedLabel = UnitFormat.speed(topSpeedMs, units),
+                playheadIndex = playheadIndex,
+                onClick = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             // ---- Empty state (skip charts, keep map placeholder above) ----
             if (points.isEmpty()) {

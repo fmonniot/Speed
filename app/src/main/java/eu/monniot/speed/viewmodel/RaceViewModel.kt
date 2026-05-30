@@ -7,7 +7,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import eu.monniot.speed.data.RaceDatabase
 import eu.monniot.speed.data.RaceRepository
+import eu.monniot.speed.data.Segment
+import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.SessionSummary
+import eu.monniot.speed.domain.SessionStats
+import eu.monniot.speed.domain.SessionStatsComputer
 import eu.monniot.speed.data.SettingsRepository
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
@@ -183,6 +187,26 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun getPointsForSession(sessionId: String) = repository.getPointsForSession(sessionId)
 
     suspend fun getSession(sessionId: String) = repository.getSession(sessionId)
+
+    // E2: per-session metrics computed on demand from the session's points.
+    suspend fun getSessionStats(sessionId: String): SessionStats =
+        SessionStatsComputer.compute(repository.getPointsForSession(sessionId))
+
+    // E4/D7/D8: segments.
+    val segmentListItems: StateFlow<List<SegmentListItem>> = repository.segmentListItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    suspend fun getSegment(segmentId: String) = repository.getSegment(segmentId)
+
+    fun getAttemptsForSegment(segmentId: String) = repository.getAttemptsForSegment(segmentId)
+
+    fun deleteSegment(segmentId: String) {
+        viewModelScope.launch { repository.deleteSegment(segmentId) }
+    }
+
+    fun setSegmentGoal(segment: Segment, goal: Boolean) {
+        viewModelScope.launch { repository.updateSegment(segment.copy(isGoal = goal)) }
+    }
 
     fun updateSessionNotes(session: Session, notes: String) {
         viewModelScope.launch {

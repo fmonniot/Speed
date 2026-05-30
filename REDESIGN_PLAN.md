@@ -46,9 +46,9 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [x] D9 Settings · [ ] D10 Export
-- [x] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [x] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
-- [ ] F1 MapLibre · [ ] F2 Full-screen map · [◐] F3 GPX export · [◐] F4 FIT export · [ ] F5 Export scope/include
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [x] D7 Segment list · [x] D8 Segment detail · [x] D9 Settings · [◐] D10 Export
+- [x] E1 Lean+lateral G · [x] E2 SessionStats · [ ] E3 Aggregates · [x] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
+- [x] F1 MapLibre · [ ] F2 Full-screen map · [◐] F3 GPX export · [◐] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
 
 ---
@@ -425,7 +425,7 @@ highlighted and zero-height placeholder bars (TODO E2/E3); bars + the three unde
 trips/are inert until E3. Icon fallbacks: `Icons.Filled.Moving`/`Route` (no Rounded variants).
 
 ## D7. Stats · Segment list (`M3SegmentList`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.7 · **Data needs:** E4, E5
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.7 · **Data needs:** E4, E5
 
 New screen. Top bar: `arrow_back` leading, "Segments" title, `add` trailing; bottom nav active = Stats.
 Content: search bar; sort chips (Best time / Most runs / Nearby — `Updates in place`); count label;
@@ -437,12 +437,17 @@ Interactions: back → Stats; add opens new-segment creation (E6); search; sort 
 **Key files:** new `…/ui/SegmentListScreen.kt`; segment DAO/repo (E4); trend computation (E5).
 
 **Acceptance criteria:**
-- [ ] Search, sort chips, count label, and segment rows render per §4.7 (empty-state acceptable pre-E4).
-- [ ] Trend indicator shows correct direction/color and delta seconds when data exists.
-- [ ] Row → segment detail; add → creation flow; back → Stats.
+- [x] Search, sort chips, count label, and segment rows render per §4.7 (empty-state shown until E5 records attempts).
+- [x] Trend indicator shows correct direction/color and delta seconds when data exists.
+- [x] Row → segment detail; add → creation flow (no-op until E6); back → Stats.
+
+**Notes:** `ui/SegmentListScreen.kt` (+ `SegmentSort` enum), wired into the `segments` route (replaces
+`SegmentsPlaceholder`); consumes `viewModel.segmentListItems` (E4 `SegmentListItem`). Sort updates in
+place (Nearby falls back to best-time order — no location yet). Trend from last-vs-previous attempt time.
+Search is tap-to-open (no-op); Add is a no-op stub until E6. Empty-state until E5 populates attempts.
 
 ## D8. Stats · Segment detail (`M3Segment`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.8 · **Data needs:** E4, E5
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.8 · **Data needs:** E4, E5
 
 New screen. Top bar: `arrow_back` leading, "Segment" title, `more_vert` trailing; no bottom nav. Content:
 title + meta (name, "distance · N attempts"); personal-best card (`primaryContainer`: "PERSONAL BEST" +
@@ -455,9 +460,15 @@ ride/trace.
 **Key files:** new `…/ui/SegmentDetailScreen.kt`; segment DAO/repo (E4/E5).
 
 **Acceptance criteria:**
-- [ ] PB card, attempt history with relative bars + deltas, and the overflow menu all present.
-- [ ] PB card and attempt rows navigate to the corresponding trace.
-- [ ] Best attempt is visually highlighted; values formatted via C2.
+- [x] PB card, attempt history with relative bars + deltas, and the overflow menu all present.
+- [x] PB card and attempt rows navigate to the corresponding trace.
+- [x] Best attempt is visually highlighted; values formatted via C2.
+
+**Notes:** `ui/SegmentDetailScreen.kt`, wired into the `segment/{id}` route (replaces
+`SegmentDetailPlaceholder`); parent loads `getSegment(id)` + observes `getAttemptsForSegment(id)`.
+Overflow menu (rename/set-as-goal/delete/share): delete + set-as-goal wired to the VM (rename/share are
+stubs for now). PB card / attempt rows navigate to `trace/{sessionId}`. Relative bar fraction =
+best/elapsed; best attempt highlighted in `primary`. Empty until E5 records attempts.
 
 ## D9. Settings (`M3Settings`)
 **Status:** ☑ · **Depends on:** A5, B2, C1 · **Spec:** §4.9
@@ -485,7 +496,7 @@ new `imuRateHz`/`autoPause` flows). Pickers are `AlertDialog` radio lists. Datas
 ~120 B/point estimate (`formatBytes` in MainActivity) until F5 computes a real size. Help action is a stub.
 
 ## D10. Settings · Export (`M3Export`)
-**Status:** ☐ · **Depends on:** A5, B2, C1 · **Spec:** §4.10 · **Real export needs:** F3, F4, F5
+**Status:** ◐ · **Depends on:** A5, B2, C1 · **Spec:** §4.10 · **Real export needs:** F3, F4, F5
 
 New screen. Top bar: `arrow_back` leading, "Export data" title, `help` trailing; no bottom nav. Content:
 summary line (dataset size at full resolution); **FORMAT** single-select 3-up cards CSV/GPX/FIT (selected
@@ -498,10 +509,17 @@ format select in place; scope rows open pickers; include switches in place; Expo
 **Key files:** new `…/ui/ExportScreen.kt`; export pipeline (F3/F4/F5).
 
 **Acceptance criteria:**
-- [ ] Format single-select, scope pickers, and include switches all function and update the button label.
-- [ ] Export button label shows the live count + estimated size for the current scope/include.
+- [x] Format single-select and include switches function and update the button label (scope pickers are
+      display-only no-ops until F5).
+- [x] Export button label shows the live count + estimated size for the current scope/include (heuristic estimate).
 - [ ] Export action produces a file in the selected format honoring the include toggles (via F-phase),
-      then offers share.
+      then offers share. → F5.
+
+**Notes:** `ui/ExportScreen.kt` (+ `ExportFormat` enum), wired into the `export` route (replaces
+`ExportPlaceholder`). FORMAT 3-up cards (single-select, `check_circle`), SCOPE grouped rows (Trips/Date —
+display-only TODO(F5) pickers), INCLUDE switches (GPS/IMU/Lean). Export button label recomputes a heuristic
+size estimate (stream weights × format scale) live. `onExport` is a no-op stub until F5 wires the real
+pipeline (GpxExporter/FitExporter from F3/F4 + CSV) with scope/include honoring + progress + share.
 
 ---
 
@@ -534,7 +552,7 @@ null). Covered by `fusion/MotionMathTest.kt` (JVM). Pre-existing `FusionIntegrat
 (`SystemClock` not mockable) — unrelated to this change (fails on clean HEAD too).
 
 ## E2. SessionStats computer
-**Status:** ☐ · **Depends on:** E1 · **Spec:** §4.3, §4.1
+**Status:** ☑ · **Depends on:** E1 · **Spec:** §4.3, §4.1
 
 Add `domain/SessionStats.kt` computing per-session: distance (GPS integration — currently missing),
 average speed, max speed (top), max lateral G, max lean, hard brake (most-negative signed longitudinal
@@ -546,9 +564,15 @@ repository/ViewModel for D1/D3/D6.
 `…/service/RaceRecordingService.kt` (finalize hook).
 
 **Acceptance criteria:**
-- [ ] All six+ metrics computed correctly from a session's `DataPoint`s (with unit tests on sample data).
-- [ ] Distance integrates GPS track (validated against a known-distance fixture).
-- [ ] Stats are available to the Summary/Home/Stats screens (replacing their placeholders).
+- [x] All six+ metrics computed correctly from a session's `DataPoint`s (`domain/SessionStatsTest.kt`).
+- [x] Distance integrates GPS track (haversine; validated against a ~1°-latitude fixture ≈ 111 km).
+- [x] Stats are available via `RaceViewModel.getSessionStats(id)` (screen backfill into D1/D3/D6 is wave 4).
+
+**Notes:** New `domain/SessionStats.kt` — pure `SessionStatsComputer.compute(points)` → distance (haversine),
+avg (moving points only), max speed, max |lateralGz|, max |leanAngleDeg|, hardBrake (most-negative
+derivedAccel/9.81, clamped ≤0), movingPercent (>0.5 m/s). Compute-on-load (no persisted row); exposed via
+`RaceViewModel.getSessionStats`. JVM-tested. Wiring the numbers into the D1/D3/D6 placeholders happens in
+the wave-4 backfill (alongside E3).
 
 ## E3. Aggregate queries
 **Status:** ☐ · **Depends on:** E2 · **Spec:** §4.1, §4.6
@@ -626,7 +650,7 @@ being matched (E5) on future rides.
 # Phase F — Map & export formats
 
 ## F1. MapLibre integration
-**Status:** ☐ · **Depends on:** D5 · **Spec:** §4.5, §5 "Charts & map"
+**Status:** ☑ · **Depends on:** D5 · **Spec:** §4.5, §5 "Charts & map"
 
 Add the MapLibre Android SDK (or osmdroid) and a `MapTrackCard` composable: render the session's GPS
 polyline with a start marker (primary) and end marker (error), and a floating chip calling out the
@@ -636,9 +660,17 @@ track. Replace D5's map placeholder.
 **Key files:** `app/build.gradle.kts` (dependency), new `…/ui/components/MapTrackCard.kt`, `…/ui/TraceScreen.kt`.
 
 **Acceptance criteria:**
-- [ ] Map renders OSM tiles with the session polyline + start/end markers and a top-speed chip.
-- [ ] No API key/billing required (open-source provider).
-- [ ] Scrubbing the D5 charts moves a marker along the polyline in sync with the read-outs.
+- [x] Map renders OSM tiles with the session polyline + start/end markers and a top-speed chip.
+- [x] No API key/billing required (OSM raster style via MapLibre).
+- [x] Scrubbing the D5 charts moves a marker along the polyline in sync with the read-outs.
+
+**Notes:** Added `org.maplibre.gl:android-sdk:11.8.0` (libs.versions.toml + app/build.gradle.kts). New
+`ui/components/MapTrackCard.kt` (AndroidView around `MapView` with lifecycle forwarding; OSM raster style
+JSON, no key; polyline via GeoJsonSource+LineLayer; start `primary`/end `error` CircleLayers; tertiary
+playhead marker updated on `playheadIndex`; camera fit to `LatLngBounds`; theme colors via `.toArgb()`).
+Wired into `TraceScreen` (replaces the placeholder card; also swapped the G chart from the longitudinal-
+accel stand-in to the real `DataPoint.lateralGz` now that E1 landed). Empty-state ("No GPS track") when no
+points carry lat/lon, which also keeps `@Preview` safe (no live MapView). F2 (full-screen on tap) pending.
 
 ## F2. Full-screen map
 **Status:** ☐ · **Depends on:** F1 · **Spec:** §4.5 (map card → Opens)
