@@ -13,9 +13,11 @@
 `☐` not started `◐` in progress `☑` done
 
 ## Global rules (apply to every task)
-- **Source of truth:** `spec/design-spec.md`. Where the React artifacts in
-  `spec/design-artifacts/material3.jsx` disagree, the spec wins (use the artifacts only for
-  visual/layout reference and to port `WavyLine`).
+- **Source of truth:** `spec/design-spec.md` is authoritative. For concrete layout values
+  (paddings, sizes, gaps, icon sizes) and the `WavyLine` algorithm, read `spec/component-reference.md`
+  — a compact distillation of the mock-ups. Only fall back to the raw `spec/design-artifacts/*.jsx`
+  (grep + read the single relevant function) if something is truly unspecified; the spec still wins
+  on any disagreement.
 - **Units & sizing:** layout/spacing/radii/component sizes in `dp`; text in `sp`.
 - **Colors:** reference M3 `ColorScheme` roles only — never hard-code hex inside screens/components.
 - **Data units:** store SI internally (m/s, m, m/s²); convert only at the display boundary per the
