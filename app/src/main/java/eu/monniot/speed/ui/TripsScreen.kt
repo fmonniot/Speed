@@ -153,9 +153,10 @@ fun TripsScreen(
                     val dateStr = remember(session.startTimeMs) {
                         dateFormat.format(session.startTimeMs)
                     }
+                    val distanceStr = session.distanceM?.let { UnitFormat.distance(it, units) } ?: "—"
                     ListRow(
                         title = name,
-                        meta = "$dateStr · —", // TODO(E2): per-trip distance
+                        meta = "$dateStr · $distanceStr",
                         leadingIcon = Icons.Filled.TwoWheeler,
                         leadingContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         leadingContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -178,6 +179,7 @@ private val previewSessions = listOf(
         endTimeMs = System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000L + 3_600_000L,
         pointCount = 1200,
         maxSpeedMs = 28.5f,  // ~102 km/h
+        distanceM = 38_400f,
     ),
     SessionSummary(
         sessionId = "d4e5f6",
@@ -185,6 +187,7 @@ private val previewSessions = listOf(
         endTimeMs = System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000L + 2_700_000L,
         pointCount = 890,
         maxSpeedMs = 44.4f,  // ~160 km/h
+        distanceM = 54_800f,
     ),
     SessionSummary(
         sessionId = "g7h8i9",
@@ -192,6 +195,7 @@ private val previewSessions = listOf(
         endTimeMs = System.currentTimeMillis() - 10 * 24 * 60 * 60 * 1000L + 5_400_000L,
         pointCount = 2100,
         maxSpeedMs = 52.1f,  // ~187 km/h
+        distanceM = 71_200f,
     ),
     SessionSummary(
         sessionId = "j0k1l2",
