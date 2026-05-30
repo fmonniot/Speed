@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.MaterialTheme
@@ -52,31 +51,7 @@ private fun PlaceholderColumn(
 
 // Trips · Trace (§4.5) is the real screen TraceScreen (D5) — no placeholder needed.
 
-// --- Stats · Overview (§4.6) ---
-@Composable
-fun StatsPlaceholder(
-    onDateRange: () -> Unit,
-    onOpenSummary: (String) -> Unit,
-    onOpenTrips: () -> Unit,
-    onOpenSegments: () -> Unit,
-) {
-    Scaffold(
-        topBar = {
-            SpeedTopBar(
-                title = "Statistics",
-                trailingIcon = Icons.Rounded.DateRange,
-                onTrailingAction = onDateRange,
-            )
-        },
-    ) { padding ->
-        PlaceholderColumn(Modifier.padding(padding)) {
-            Text("Statistics", style = MaterialTheme.typography.headlineSmall)
-            SpeedFullWidthButton(onClick = onOpenTrips, label = "A month's trips")
-            SpeedFullWidthButton(onClick = { onOpenSummary(SAMPLE_ID) }, label = "Ride holding a record")
-            SpeedFullWidthButton(onClick = onOpenSegments, label = "Tracked segments")
-        }
-    }
-}
+// Stats · Overview (§4.6) is the real screen StatsScreen (D6) — no placeholder needed.
 
 // --- Stats · Segment list (§4.7) — bottom nav active = Stats ---
 @Composable

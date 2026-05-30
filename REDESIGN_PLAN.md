@@ -46,7 +46,7 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [ ] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
 - [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
 - [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
@@ -398,7 +398,7 @@ lands. Map is a non-interactive placeholder (TODO F1/F2). Download reuses `expor
 The old `SessionDetailScreen`/`SpeedChart` are untouched and removed in G1.
 
 ## D6. Stats · Overview (`M3Stats`)
-**Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.6 · **Real numbers need:** E3
+**Status:** ☑ · **Depends on:** A5, B2, C2 · **Spec:** §4.6 · **Real numbers need:** E3
 
 New screen. Top bar: "Statistics" title, `date_range` trailing; bottom nav active = Stats. All figures
 re-scope to the selected range. Content: range chips (This year / 90 days / All time — `Updates in
@@ -411,10 +411,18 @@ that record; segments row → `segments`; bottom nav switches. Add scoped aggreg
 **Key files:** new `…/ui/StatsScreen.kt`; DAO aggregates (E3); a bar-chart Canvas component.
 
 **Acceptance criteria:**
-- [ ] Range chips re-scope every figure on the screen.
-- [ ] Distance hero shows scoped total + trend % + a 6-month bar chart with the current month highlighted.
-- [ ] Records grid and month bars navigate to the correct ride/trips per §4.6.
-- [ ] Numbers come from E3 aggregates (placeholder until E3); formatted via C2.
+- [x] Range chips re-scope every figure on the screen.
+- [x] Distance hero shows scoped total + trend % + a 6-month bar chart with the current month highlighted.
+- [x] Records grid and month bars navigate to the correct ride/trips per §4.6.
+- [x] Numbers come from E3 aggregates (placeholder until E3); formatted via C2.
+
+**Notes:** `ui/StatsScreen.kt` (+ `StatsRange` enum). Range chips switch an internal scope (year/90d/all)
+that re-scopes the label and the one derivable figure — the **Top-speed record**, computed from the scoped
+`SessionSummary` list and wired to navigate to its holding ride. Everything else is deferred to E3 and shows
+"—": scoped total distance + trend (TODO E2/E3), max lean/max-g-lat (TODO E1/E3), longest ride (TODO E2/E3),
+segment count (TODO E4). The 6-month bar row renders the trailing-6-month labels with the current month
+highlighted and zero-height placeholder bars (TODO E2/E3); bars + the three undeived record cards route to
+trips/are inert until E3. Icon fallbacks: `Icons.Filled.Moving`/`Route` (no Rounded variants).
 
 ## D7. Stats · Segment list (`M3SegmentList`)
 **Status:** ☐ · **Depends on:** A5, B2, C2 · **Spec:** §4.7 · **Data needs:** E4, E5

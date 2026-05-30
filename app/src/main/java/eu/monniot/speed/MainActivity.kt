@@ -49,7 +49,7 @@ import eu.monniot.speed.ui.RideHomeScreen
 import eu.monniot.speed.ui.SegmentDetailPlaceholder
 import eu.monniot.speed.ui.SegmentsPlaceholder
 import eu.monniot.speed.ui.SettingsPlaceholder
-import eu.monniot.speed.ui.StatsPlaceholder
+import eu.monniot.speed.ui.StatsScreen
 import eu.monniot.speed.ui.SummaryScreen
 import eu.monniot.speed.ui.TraceScreen
 import eu.monniot.speed.ui.TripsFilter
@@ -262,7 +262,9 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             )
         }
         composable(Routes.STATS) {
-            StatsPlaceholder(
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            StatsScreen(
+                sessions = sessions,
                 onDateRange = {},
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenTrips = { navController.navigate(Routes.TRIPS) },
