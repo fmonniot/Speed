@@ -49,7 +49,7 @@ feature real; G cleans up.
 - [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [x] D7 Segment list · [x] D8 Segment detail · [x] D9 Settings · [x] D10 Export
 - [x] E1 Lean+lateral G · [x] E2 SessionStats · [x] E3 Aggregates · [x] E4 Segments model · [x] E5 Segment matching · [x] E6 Segment creation
 - [x] F1 MapLibre · [x] F2 Full-screen map · [x] F3 GPX export · [x] F4 FIT export · [x] F5 Export scope/include
-- [ ] G1 Cleanup
+- [x] G1 Cleanup
 
 ---
 
@@ -784,7 +784,7 @@ so SCOPE actually filters, and a progress indicator during export. Tracked under
 # Phase G — Cleanup
 
 ## G1. Remove dead code & refresh previews
-**Status:** ☐ · **Depends on:** D1–D10 complete · **Spec:** —
+**Status:** ☑ · **Depends on:** D1–D10 complete · **Spec:** —
 
 Once the new screens replace the originals, delete the obsolete `RaceScreen`/`SessionsScreen`/old
 `SessionDetailScreen`/old `SettingsScreen` and any leftover red/teal colors; refresh `ScreenPreviews.kt`
@@ -793,9 +793,18 @@ to cover the redesigned screens; drop the Material-2 `material` dependency if no
 **Key files:** old `ui/*` screens, `…/ui/theme/Color.kt`, `…/ui/ScreenPreviews.kt`, `app/build.gradle.kts`.
 
 **Acceptance criteria:**
-- [ ] No references remain to the deleted screens; app builds and all routes work.
-- [ ] `ScreenPreviews.kt` previews the redesigned screens in light and dark.
-- [ ] Unused dependencies/colors removed; `./gradlew assembleDebug` and `testDebugUnitTest` pass.
+- [x] No references remain to the deleted screens; app builds and all routes work.
+- [x] `ScreenPreviews.kt` previews the redesigned screens in light and dark.
+- [x] Unused dependencies/colors removed; `./gradlew assembleDebug` and `testDebugUnitTest` pass.
+
+**Notes:** Deleted `RaceScreen.kt`, `SessionsScreen.kt`, `SessionDetailScreen.kt` (which also held the old
+`SpeedChart`), and `PlaceholderScreens.kt` (all B2 placeholders now superseded by real screens). The old
+`SettingsScreen` was already replaced in D9. `ScreenPreviews.kt` rewritten to preview the redesigned Ride/
+Trips/Stats tabs inside `SpeedAppShell` (light+dark); every redesigned screen also keeps its own
+`@PreviewLightDark`. Removed the unused `com.google.android.material` (Material-2) dependency from
+`app/build.gradle.kts` + the catalog (the app theme uses the framework `Theme.Material.Light.NoActionBar`;
+no AppCompat/Material-Components usage). `Color.kt` was already green-only — no red/teal/purple to strip.
+`assembleDebug` + `testDebugUnitTest` green (100 tests, 0 failures).
 
 ---
 
