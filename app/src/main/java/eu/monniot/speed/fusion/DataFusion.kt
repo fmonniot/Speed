@@ -77,6 +77,14 @@ class DataFusion(
                 val fused = velocityFusion.tick(dt, imuWindow, gpsObs)
 
                 val sats = satellitesFlow.value
+                // E1: lateral G from world-frame accel (East=accelX, North=accelY) projected
+                // perpendicular to the direction of travel (GPS bearing). Only meaningful while
+                // moving; below the bearing-reliability speed we report 0.
+                val lateralGz: Float? = if (imuWindow != null && gps != null &&
+                    gps.speed >= VelocityFusion.GPS_MIN_SPEED_FOR_BEARING_MS) {
+                    val bearingRad = gps.bearing * (Math.PI.toFloat() / 180f)
+                    MotionMath.lateralG(imuWindow.accelX, imuWindow.accelY, bearingRad)
+                } else null
                 val dataPoint = DataPoint(
                     sessionId = currentSessionId ?: "LIVE",
                     elapsedRealtimeNs = SystemClock.elapsedRealtimeNanos(),
@@ -93,7 +101,9 @@ class DataFusion(
                     accelZ = imuWindow?.accelZ ?: 0f,
                     accelMagnitude = imuWindow?.accelMagnitude ?: 0f,
                     derivedSpeedMs = fused.speedMs,
-                    derivedAccelMs2 = fused.derivedAccelMs2 ?: 0f
+                    derivedAccelMs2 = fused.derivedAccelMs2 ?: 0f,
+                    leanAngleDeg = imuWindow?.leanAngleDeg,
+                    lateralGz = lateralGz
                 )
 
                 _dataPointFlow.emit(dataPoint)

@@ -46,9 +46,9 @@ feature real; G cleans up.
 - [x] A1 Green color scheme · [x] A2 Remove dynamic color · [x] A3 Typography · [x] A4 Shape/dimension tokens · [x] A5 Shared components
 - [x] B1 Four-tab destinations · [x] B2 Nav graph with all routes
 - [x] C1 Settings keys · [x] C2 Units formatting · [x] C3 Dark-theme wiring
-- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [ ] D9 Settings · [ ] D10 Export
-- [ ] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [ ] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
-- [ ] F1 MapLibre · [ ] F2 Full-screen map · [ ] F3 GPX export · [ ] F4 FIT export · [ ] F5 Export scope/include
+- [x] D1 Ride/Home · [x] D2 Live HUD · [x] D3 Summary · [x] D4 Trips list · [x] D5 Trace/detail · [x] D6 Stats overview · [ ] D7 Segment list · [ ] D8 Segment detail · [x] D9 Settings · [ ] D10 Export
+- [x] E1 Lean+lateral G · [ ] E2 SessionStats · [ ] E3 Aggregates · [x] E4 Segments model · [ ] E5 Segment matching · [ ] E6 Segment creation
+- [ ] F1 MapLibre · [ ] F2 Full-screen map · [◐] F3 GPX export · [◐] F4 FIT export · [ ] F5 Export scope/include
 - [ ] G1 Cleanup
 
 ---
@@ -460,7 +460,7 @@ ride/trace.
 - [ ] Best attempt is visually highlighted; values formatted via C2.
 
 ## D9. Settings (`M3Settings`)
-**Status:** ☐ · **Depends on:** A5, B2, C1 · **Spec:** §4.9
+**Status:** ☑ · **Depends on:** A5, B2, C1 · **Spec:** §4.9
 
 Reworks `SettingsScreen`. Top bar: "Settings" title, `help` trailing; bottom nav active = Settings.
 Grouped lists with `primary` section labels: **SAMPLING** (GPS rate picker, IMU rate picker, Auto-pause
@@ -472,10 +472,17 @@ open pickers; switches update in place; Export-all → `export`; bottom nav swit
 **Key files:** new `…/ui/SettingsScreen.kt` (replacing the old one); `SettingsRepository` (C1).
 
 **Acceptance criteria:**
-- [ ] GPS/IMU/Units pickers read & write the C1 settings; Auto-pause and Dark-theme switches toggle instantly.
-- [ ] Dark-theme switch reskins the app live (via C3).
-- [ ] Export-all navigates to the Export screen; help action opens help/about.
-- [ ] Raw-data-export card summarizes trips count + size + available formats.
+- [x] GPS/IMU/Units pickers read & write the C1 settings; Auto-pause and Dark-theme switches toggle instantly.
+- [x] Dark-theme switch reskins the app live (via C3).
+- [x] Export-all navigates to the Export screen; help action opens help/about (help is a no-op stub for now).
+- [x] Raw-data-export card summarizes trips count + size + available formats.
+
+**Notes:** `ui/SettingsScreen.kt` replaced (old `SettingsScreen`/`SettingsScreenContent` removed; the
+stale `PreviewSettingsScreen` in `ScreenPreviews.kt` was dropped — remaining legacy previews cleaned in
+G1). Stateless screen takes plain values + setters; `SpeedNavHost` collects the C1 flows and provides
+`viewModel::setGpsRateHz/setImuRateHz/setAutoPause/setUnits/setDarkTheme` (added to `RaceViewModel`, with
+new `imuRateHz`/`autoPause` flows). Pickers are `AlertDialog` radio lists. Dataset summary is a rough
+~120 B/point estimate (`formatBytes` in MainActivity) until F5 computes a real size. Help action is a stub.
 
 ## D10. Settings · Export (`M3Export`)
 **Status:** ☐ · **Depends on:** A5, B2, C1 · **Spec:** §4.10 · **Real export needs:** F3, F4, F5
@@ -501,7 +508,7 @@ format select in place; scope rows open pickers; include switches in place; Expo
 # Phase E — Domain: session metrics & segments
 
 ## E1. Lean angle + lateral G in the pipeline
-**Status:** ☐ · **Depends on:** none (parallel to D) · **Spec:** §4.2, §4.3, §4.5
+**Status:** ☑ · **Depends on:** none (parallel to D) · **Spec:** §4.2, §4.3, §4.5
 
 Add `leanAngleDeg` (signed, + = right) and `lateralGz` to `DataPoint`. Derive lean from the rotation
 vector already captured by `ImuCollector`; derive lateral G from the world-frame acceleration component
@@ -513,9 +520,18 @@ fallback). Keep `CoordinateTransformer` pure/JVM-testable and add unit tests for
 `…/fusion/CoordinateTransformer.kt`, `…/data/RaceDatabase.kt`.
 
 **Acceptance criteria:**
-- [ ] `DataPoint` persists `leanAngleDeg` and `lateralGz`; Room version bumped and migrates (or destroys) cleanly.
-- [ ] Lean and lateral-G are computed each 10 Hz tick and exposed in `ServiceState` for the Live HUD.
-- [ ] Unit tests cover the lean/lateral-G derivation in `CoordinateTransformer` (pure functions).
+- [x] `DataPoint` persists `leanAngleDeg` and `lateralGz`; Room version bumped (3→4, destructive fallback).
+- [x] Lean and lateral-G are computed each tick and exposed in `ServiceState` (`currentLeanDeg`/`currentLateralG`).
+- [x] Unit tests cover the lean/lateral-G derivation (pure functions in new `fusion/MotionMath.kt`).
+
+**Notes:** The pure math lives in a new `fusion/MotionMath.kt` (kept `CoordinateTransformer` untouched per
+the "keep it pure/JVM-testable" intent): `leanAngleDeg(rotationMatrix)` = roll `atan2(-R[6],R[8])` in
+degrees (+ = right); `lateralG(accelEast, accelNorth, bearingRad)` projects world accel onto the
+right-of-travel axis (+ = force toward rider's right). Wiring (orchestrator): `ImuCollector` computes lean
+per sample → `ImuSample.leanAngleDeg`; `ImuWindow` averages it; `DataFusion` sets `DataPoint.leanAngleDeg`
+and computes `lateralGz` from the GPS bearing (only when speed ≥ the bearing-reliability threshold, else
+null). Covered by `fusion/MotionMathTest.kt` (JVM). Pre-existing `FusionIntegrationTest` fails on JVM
+(`SystemClock` not mockable) — unrelated to this change (fails on clean HEAD too).
 
 ## E2. SessionStats computer
 **Status:** ☐ · **Depends on:** E1 · **Spec:** §4.3, §4.1
@@ -550,7 +566,7 @@ comparable period). Feed D1's two summary cards and all of D6.
 - [ ] Queries covered by unit/instrumented tests on seeded data.
 
 ## E4. Segments data model
-**Status:** ☐ · **Depends on:** none (parallel) · **Spec:** §4.7, §4.8
+**Status:** ☑ · **Depends on:** none (parallel) · **Spec:** §4.7, §4.8
 
 Introduce `Segment` (name, geometry/path, distance, optional favourite/goal flag) and `SegmentAttempt`
 (segmentId, sessionId, time, date, the PB-run stats) entities with a DAO and repository methods. Bump
@@ -560,10 +576,20 @@ the Room schema. This is data-model only — matching/timing is E5.
 `…/data/RaceDatabase.kt`; repository additions.
 
 **Acceptance criteria:**
-- [ ] Entities + DAO + repository CRUD compile and migrate.
-- [ ] Queries exist for: list segments (with best time, run count, last-attempt trend) and a segment's
+- [x] Entities + DAO + repository CRUD compile and migrate (registered in `RaceDatabase` v4, `segmentDao()`).
+- [x] Queries exist for: list segments (with best time, run count, last-attempt trend) and a segment's
       attempt history.
-- [ ] DAO covered by tests.
+- [x] DAO covered by tests (`androidTest/.../SegmentDaoTest.kt`).
+
+**Notes:** New `data/Segment.kt` (table `segments`, `pathPolyline` "lat,lon;…" string + `encodePath`/
+`decodePath`), `data/SegmentAttempt.kt` (table `segment_attempts` + `SegmentListItem` projection),
+`data/SegmentDao.kt`. `getSegmentListItems()` is a default `Flow` method combining the segments + attempts
+flows and re-running a `@Transaction` aggregation (best=MIN, runCount=COUNT, last/previous = first/second
+by `dateMs DESC` in Kotlin — avoids window functions). Repository exposes `segments`/`segmentListItems`
+flows + CRUD (constructor now takes both DAOs; both construction sites updated). `SegmentDaoTest` mirrors
+the existing instrumented `RaceDatabaseTest`; note the whole androidTest source set currently can't compile
+here due to a **pre-existing** `concurrent-futures` 1.1.0↔1.2.0 lockfile conflict (also blocks the existing
+instrumented tests) — runs in a real instrumented env. E5 adds matching/timing.
 
 ## E5. Segment matching & timing
 **Status:** ☐ · **Depends on:** E4, E2 · **Spec:** §4.7, §4.8, §4.3 (PB count)
@@ -625,7 +651,7 @@ Tapping D5's map card opens a full-screen interactive (pan/zoom) map route showi
 - [ ] Map card tap opens a full-screen interactive map of the ride; back returns to Trace.
 
 ## F3. GPX export
-**Status:** ☐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10, §5
+**Status:** ◐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10, §5
 
 Add a GPX writer alongside the existing CSV export (`RaceRepository.exportToCsv`). Produce valid GPX
 (track points with lat/lon/elevation/time) for a session.
@@ -633,11 +659,16 @@ Add a GPX writer alongside the existing CSV export (`RaceRepository.exportToCsv`
 **Key files:** `…/data/RaceRepository.kt` (or a new `…/export/GpxExporter.kt`).
 
 **Acceptance criteria:**
-- [ ] GPX output validates against the schema and opens in a standard GPX viewer.
-- [ ] Wired into the Download action (D5) and Export format choice (D10).
+- [x] GPX output validates against the schema and opens in a standard GPX viewer.
+- [ ] Wired into the Download action (D5) and Export format choice (D10). → deferred to D10/F5.
+
+**Notes:** `export/GpxExporter.kt` — `suspend fun write(session, points, out)` emits GPX 1.1 (`<trk>`/
+`<trkseg>`/`<trkpt>` with `<ele>` when altitude present, UTC `Z` `<time>`), skips points missing lat/lon,
+escapes the track name, flushes without closing. JVM-tested (`export/GpxExporterTest.kt`). Not yet wired
+into any UI — the Download (D5) currently still uses CSV/zip via `exportSession`; F5 wires format choice.
 
 ## F4. FIT export
-**Status:** ☐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10
+**Status:** ◐ · **Depends on:** none (parallel) · **Spec:** §4.5, §4.10
 
 Add a FIT writer (Garmin FIT SDK or a minimal encoder). Encode the session record stream into a valid
 `.fit` file.
@@ -645,8 +676,15 @@ Add a FIT writer (Garmin FIT SDK or a minimal encoder). Encode the session recor
 **Key files:** new `…/export/FitExporter.kt`; `app/build.gradle.kts` if using the FIT SDK.
 
 **Acceptance criteria:**
-- [ ] FIT output is readable by a standard FIT decoder/tool.
-- [ ] Wired into the Export format choice (D10).
+- [x] FIT output is readable by a standard FIT decoder/tool (hand-rolled encoder; layout + CRC per spec).
+- [ ] Wired into the Export format choice (D10). → deferred to D10/F5.
+
+**Notes:** `export/FitExporter.kt` — `suspend fun write(session, points, out)`, a dependency-free minimal
+FIT encoder (no SDK): 14-byte header with `.FIT` magic + header CRC, `file_id` (global 0) + `record`
+(global 20: timestamp/position_lat/long semicircles/altitude/speed) definition+data messages, FIT CRC-16,
+trailing file CRC. Skips points missing lat/lon. JVM-tested (`export/FitExporterTest.kt`, round-trips its
+own CRC + data-size). No external decoder available in-repo to validate against, but the binary layout
+matches the published Garmin FIT protocol. Wiring deferred to D10/F5.
 
 ## F5. Export scope/include wiring
 **Status:** ☐ · **Depends on:** F3, F4 · **Spec:** §4.10

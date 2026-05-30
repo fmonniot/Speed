@@ -14,7 +14,9 @@ import kotlinx.coroutines.flow.asStateFlow
 
 data class ImuSample(
     val accelWorld: FloatArray, // x, y, z in world frame
-    val timestampNs: Long
+    val timestampNs: Long,
+    // E1: side-to-side lean derived from the current rotation matrix (+ = leaning right).
+    val leanAngleDeg: Float = 0f
 )
 
 class ImuCollector(
@@ -62,8 +64,10 @@ class ImuCollector(
             Sensor.TYPE_LINEAR_ACCELERATION -> {
                 if (lastRotationVector != null) {
                     val worldAccel = CoordinateTransformer.transform(event.values, rotationMatrix)
-                    
-                    _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp))
+                    // E1: derive lean from the current device→world rotation matrix.
+                    val lean = eu.monniot.speed.fusion.MotionMath.leanAngleDeg(rotationMatrix)
+
+                    _imuFlow.tryEmit(ImuSample(worldAccel, event.timestamp, lean))
                     
                     // Pipe raw data to sink if available
                     rawSink?.onImuEvent(event.values.clone(), lastRotationVector!!, event.timestamp)

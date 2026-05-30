@@ -52,12 +52,18 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     val gpsRateHz: StateFlow<Int> = settingsRepository.gpsRateHz
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_GPS_RATE_HZ)
 
+    val imuRateHz: StateFlow<Int> = settingsRepository.imuRateHz
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_IMU_RATE_HZ)
+
+    val autoPause: StateFlow<Boolean> = settingsRepository.autoPause
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
 
     init {
-        val dao = RaceDatabase.getDatabase(application).dataPointDao()
-        repository = RaceRepository(dao)
+        val db = RaceDatabase.getDatabase(application)
+        repository = RaceRepository(db.dataPointDao(), db.segmentDao())
         sessions = repository.sessionSummaries
         
         // Auto-start sensors if the setting is enabled
@@ -79,6 +85,13 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
             settingsRepository.setRecordRawTraces(enabled)
         }
     }
+
+    // Redesign settings setters (C1) — used by the D9 Settings screen.
+    fun setGpsRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setGpsRateHz(hz) }
+    fun setImuRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setImuRateHz(hz) }
+    fun setAutoPause(enabled: Boolean) = viewModelScope.launch { settingsRepository.setAutoPause(enabled) }
+    fun setUnits(units: Units) = viewModelScope.launch { settingsRepository.setUnits(units) }
+    fun setDarkTheme(enabled: Boolean) = viewModelScope.launch { settingsRepository.setDarkTheme(enabled) }
 
     private fun startSensors() {
         val context = getApplication<Application>().applicationContext

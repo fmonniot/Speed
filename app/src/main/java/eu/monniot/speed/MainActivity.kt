@@ -48,7 +48,7 @@ import eu.monniot.speed.ui.LiveHudScreen
 import eu.monniot.speed.ui.RideHomeScreen
 import eu.monniot.speed.ui.SegmentDetailPlaceholder
 import eu.monniot.speed.ui.SegmentsPlaceholder
-import eu.monniot.speed.ui.SettingsPlaceholder
+import eu.monniot.speed.ui.SettingsScreen
 import eu.monniot.speed.ui.StatsScreen
 import eu.monniot.speed.ui.SummaryScreen
 import eu.monniot.speed.ui.TraceScreen
@@ -119,6 +119,16 @@ object Routes {
     // Routes that show the bottom nav. Sub-screens / full-bleed routes hide it
     // (Live, Summary, Trace, Segment detail, Export) per §4 / B1.
     val bottomBar = setOf(RIDE, TRIPS, STATS, SEGMENTS, SETTINGS)
+}
+
+// Human-readable byte size for the Settings/Export dataset summary.
+private fun formatBytes(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024) return "%.0f KB".format(kb)
+    val mb = kb / 1024.0
+    if (mb < 1024) return "%.0f MB".format(mb)
+    return "%.1f GB".format(mb / 1024.0)
 }
 
 @Composable
@@ -288,7 +298,31 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             )
         }
         composable(Routes.SETTINGS) {
-            SettingsPlaceholder(
+            val gpsRateHz by viewModel.gpsRateHz.collectAsState()
+            val imuRateHz by viewModel.imuRateHz.collectAsState()
+            val autoPause by viewModel.autoPause.collectAsState()
+            val units by viewModel.units.collectAsState()
+            val darkTheme by viewModel.darkTheme.collectAsState()
+            val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+            val tripCount = sessions.size
+            // Rough dataset estimate: ~120 bytes per captured point at full 100 ms resolution.
+            val totalPoints = sessions.sumOf { it.pointCount.toLong() }
+            val storageSummary = remember(tripCount, totalPoints) {
+                "$tripCount trips · ${formatBytes(totalPoints * 120L)} at full 100 ms resolution. CSV, GPX or FIT."
+            }
+            SettingsScreen(
+                gpsRateHz = gpsRateHz,
+                imuRateHz = imuRateHz,
+                autoPause = autoPause,
+                units = units,
+                darkTheme = darkTheme,
+                tripCount = tripCount,
+                storageSummary = storageSummary,
+                onSetGpsRate = viewModel::setGpsRateHz,
+                onSetImuRate = viewModel::setImuRateHz,
+                onSetAutoPause = viewModel::setAutoPause,
+                onSetUnits = viewModel::setUnits,
+                onSetDarkTheme = viewModel::setDarkTheme,
                 onHelp = {},
                 onExportAll = { navController.navigate(Routes.EXPORT) },
             )

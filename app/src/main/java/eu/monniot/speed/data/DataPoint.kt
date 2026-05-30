@@ -21,5 +21,9 @@ data class DataPoint(
     val accelZ: Float,
     val accelMagnitude: Float,
     val derivedSpeedMs: Float?,
-    val derivedAccelMs2: Float?
+    val derivedAccelMs2: Float?,
+    // E1: signed lean angle in degrees (+ = leaning right) from the rotation vector, and signed
+    // lateral G (+ = force toward the rider's right) perpendicular to the direction of travel.
+    val leanAngleDeg: Float? = null,
+    val lateralGz: Float? = null
 )

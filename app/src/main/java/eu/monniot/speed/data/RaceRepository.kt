@@ -7,9 +7,26 @@ import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
-class RaceRepository(private val dao: DataPointDao) {
+class RaceRepository(
+    private val dao: DataPointDao,
+    private val segmentDao: SegmentDao,
+) {
 
     val sessionSummaries: Flow<List<SessionSummary>> = dao.getSessionSummaries()
+
+    // ---- Segments (E4) ----
+    val segments: Flow<List<Segment>> = segmentDao.getSegments()
+    val segmentListItems: Flow<List<SegmentListItem>> = segmentDao.getSegmentListItems()
+
+    suspend fun upsertSegment(segment: Segment) = segmentDao.upsertSegment(segment)
+    suspend fun updateSegment(segment: Segment) = segmentDao.updateSegment(segment)
+    suspend fun getSegment(id: String) = segmentDao.getSegment(id)
+    fun getAttemptsForSegment(id: String) = segmentDao.getAttemptsForSegment(id)
+    suspend fun insertAttempt(attempt: SegmentAttempt) = segmentDao.insertAttempt(attempt)
+    suspend fun deleteSegment(id: String) {
+        segmentDao.deleteAttemptsForSegment(id)
+        segmentDao.deleteSegment(id)
+    }
 
     suspend fun insertDataPoint(point: DataPoint) = dao.insertDataPoint(point)
 

@@ -90,26 +90,9 @@ fun PreviewRaceScreenRecording() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Settings Screen")
-@Composable
-fun PreviewSettingsScreen() {
-    RaceLoggerTheme {
-        SpeedAppShell(
-            currentRoute = Routes.SETTINGS,
-            onTabSelected = {}
-        ) {
-            SettingsScreenContent(
-                autoStart = true,
-                onAutoStartChange = {},
-                recordRaw = true,
-                onRecordRawChange = {},
-                batteryWattage = -0.52f,
-                batteryCapacityMah = 4500,
-                batteryTimeRemainingMs = 12600000L
-            )
-        }
-    }
-}
+// The legacy Settings preview was removed when the old SettingsScreenContent was replaced by the
+// D9 SettingsScreen (which carries its own @PreviewLightDark). Remaining legacy previews below are
+// cleaned up in G1.
 
 @Preview(showBackground = true, showSystemUi = true, name = "Sessions Screen - Populated")
 @Composable

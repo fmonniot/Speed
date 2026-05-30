@@ -36,6 +36,9 @@ data class ServiceState(
     val currentSpeedMs: Float = 0f,
     val currentAccelMs2: Float = 0f,
     val currentG: Float = 0f,
+    // E1: live lean (+ = right) and lateral G (+ = toward rider's right) for the Live HUD.
+    val currentLeanDeg: Float = 0f,
+    val currentLateralG: Float = 0f,
     val currentAccuracyM: Float? = null,
     // Battery metrics
     val batteryWattage: Float? = null,
@@ -83,8 +86,8 @@ class RaceRecordingService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
-        val dao = RaceDatabase.getDatabase(this).dataPointDao()
-        repository = RaceRepository(dao)
+        val db = RaceDatabase.getDatabase(this)
+        repository = RaceRepository(db.dataPointDao(), db.segmentDao())
         settingsRepository = SettingsRepository(this)
         
         // Initialize Raw Sink
@@ -115,6 +118,8 @@ class RaceRecordingService : LifecycleService() {
                             currentSpeedMs = point.derivedSpeedMs ?: 0f,
                             currentAccelMs2 = point.derivedAccelMs2 ?: 0f,
                             currentG = point.accelMagnitude / 9.81f,
+                            currentLeanDeg = point.leanAngleDeg ?: 0f,
+                            currentLateralG = point.lateralGz ?: 0f,
                             currentAccuracyM = point.gpsAccuracyM,
                             satellites = SatelliteInfo(point.satellitesUsed ?: 0, point.satellitesVisible ?: 0)
                         )
