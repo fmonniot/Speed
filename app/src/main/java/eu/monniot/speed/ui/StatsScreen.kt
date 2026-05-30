@@ -70,7 +70,7 @@ fun StatsScreen(
     sessions: List<SessionSummary>,  // all sessions, newest-first
     segmentCount: Int,                // number of tracked segments (E4)
     onOpenSummary: (String) -> Unit,  // open the ride holding a record
-    onOpenTrips: () -> Unit,          // month-bar tap → trips (month scoping added in R5)
+    onOpenMonth: (startMs: Long, endMsExclusive: Long) -> Unit, // month-bar tap → that month's trips
     onOpenSegments: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -130,11 +130,11 @@ fun StatsScreen(
             StatsRange.ALL_TIME -> null
         }
     }
-    // Trailing-6-month buckets for the bar chart.
-    val monthBars = remember(sessions) {
+    // Trailing-6-month buckets for the bar chart (kept so a tapped bar knows its [start, end) window).
+    val monthBuckets = remember {
         val cal = Calendar.getInstance()
         val fmt = SimpleDateFormat("MMM", Locale.getDefault())
-        val buckets = (5 downTo 0).map { monthsBack ->
+        (5 downTo 0).map { monthsBack ->
             val start = (cal.clone() as Calendar).apply {
                 add(Calendar.MONTH, -monthsBack)
                 set(Calendar.DAY_OF_MONTH, 1)
@@ -149,7 +149,9 @@ fun StatsScreen(
                 isCurrent = monthsBack == 0,
             )
         }
-        eu.monniot.speed.domain.RideAggregates.monthlyDistance(sessions, buckets)
+    }
+    val monthBars = remember(sessions, monthBuckets) {
+        eu.monniot.speed.domain.RideAggregates.monthlyDistance(sessions, monthBuckets)
     }
 
     val scopeLabel = customRange?.let { (s, e) ->
@@ -275,7 +277,8 @@ fun StatsScreen(
                     // 6-month bar chart (real per-month distance heights).
                     MonthBars(
                         bars = monthBars,
-                        onOpenTrips = onOpenTrips,
+                        buckets = monthBuckets,
+                        onOpenMonth = onOpenMonth,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 18.dp),
@@ -429,7 +432,8 @@ private fun StatsDateRangeDialog(
 @Composable
 private fun MonthBars(
     bars: List<eu.monniot.speed.domain.MonthBar>,
-    onOpenTrips: () -> Unit,
+    buckets: List<eu.monniot.speed.domain.MonthBucket>,
+    onOpenMonth: (startMs: Long, endMsExclusive: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val maxDistance = bars.maxOfOrNull { it.distanceM } ?: 0f
@@ -439,7 +443,7 @@ private fun MonthBars(
         verticalAlignment = Alignment.Bottom,
         modifier = modifier.height(64.dp),
     ) {
-        bars.forEach { bar ->
+        bars.forEachIndexed { index, bar ->
             val isCurrentMonth = bar.isCurrent
             val barColor = if (isCurrentMonth) {
                 MaterialTheme.colorScheme.onPrimaryContainer
@@ -458,7 +462,9 @@ private fun MonthBars(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxSize()
-                    .clickable { onOpenTrips() },
+                    .clickable {
+                        buckets.getOrNull(index)?.let { onOpenMonth(it.startMs, it.endMsExclusive) }
+                    },
             ) {
                 Box(
                     modifier = Modifier
@@ -597,7 +603,7 @@ private fun StatsScreenPreview() {
             sessions = previewStatsSessions,
             segmentCount = 14,
             onOpenSummary = {},
-            onOpenTrips = {},
+            onOpenMonth = { _, _ -> },
             onOpenSegments = {},
         )
     }

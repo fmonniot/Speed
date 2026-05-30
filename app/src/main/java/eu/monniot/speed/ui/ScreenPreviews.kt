@@ -95,7 +95,7 @@ private fun PreviewStatsTab() {
                     sessions = sampleSessions,
                     segmentCount = 14,
                     onOpenSummary = {},
-                    onOpenTrips = {},
+                    onOpenMonth = { _, _ -> },
                     onOpenSegments = {},
                 )
             }

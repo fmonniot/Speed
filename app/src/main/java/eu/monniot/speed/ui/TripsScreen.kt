@@ -51,6 +51,7 @@ fun TripsScreen(
     initialFilter: TripsFilter,              // pre-select a chip (e.g. arriving from Ride "This week")
     onOpenSummary: (String) -> Unit,         // pass the row's sessionId
     modifier: Modifier = Modifier,
+    dateWindow: Pair<Long, Long>? = null,    // optional [from, to) ms window (e.g. a Stats month bar)
 ) {
     val units = LocalUnits.current
     var filter by remember { mutableStateOf(initialFilter) }
@@ -60,9 +61,15 @@ fun TripsScreen(
     val nameFormat = remember { SimpleDateFormat("EEEE 'ride'", Locale.getDefault()) }
     val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
+    // Restrict to the date window first (when arriving month-scoped), then chip-filter + search.
+    val windowed = if (dateWindow != null) {
+        sessions.filter { it.startTimeMs >= dateWindow.first && it.startTimeMs < dateWindow.second }
+    } else {
+        sessions
+    }
     val filteredSessions = when (filter) {
-        TripsFilter.ALL -> sessions
-        TripsFilter.THIS_WEEK -> sessions.filter { isThisWeek(it.startTimeMs) }
+        TripsFilter.ALL -> windowed
+        TripsFilter.THIS_WEEK -> windowed.filter { isThisWeek(it.startTimeMs) }
     }.filter { s ->
         query.isBlank() ||
             "${nameFormat.format(s.startTimeMs)} ${dateFormat.format(s.startTimeMs)}"
@@ -91,7 +98,7 @@ fun TripsScreen(
                 SpeedSearchBar(
                     query = query,
                     onQueryChange = { query = it },
-                    placeholder = "Search ${sessions.size} trips",
+                    placeholder = "Search ${windowed.size} trips",
                     focusRequester = searchFocus,
                 )
             }

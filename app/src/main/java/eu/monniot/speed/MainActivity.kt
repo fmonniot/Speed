@@ -105,9 +105,10 @@ object Routes {
     const val LIVE = "live"
     const val SUMMARY = "summary/{sessionId}"
     const val TRIPS = "trips"
-    // Trips accepts an optional ?filter= so the Ride "This week" card can deep-link pre-filtered.
-    // Navigating to bare "trips" (bottom nav) resolves to this pattern with the default "all".
-    const val TRIPS_PATTERN = "trips?filter={filter}"
+    // Trips accepts an optional ?filter= so the Ride "This week" card can deep-link pre-filtered, and
+    // an optional [from,to) millis window so a Stats month-bar can open just that month's trips.
+    // Navigating to bare "trips" (bottom nav) resolves to this pattern with the defaults.
+    const val TRIPS_PATTERN = "trips?filter={filter}&from={from}&to={to}"
     const val TRACE = "trace/{sessionId}"
     const val MAP = "map/{sessionId}"
     const val STATS = "stats"
@@ -122,6 +123,7 @@ object Routes {
     fun map(id: String) = "map/$id"
     fun segment(id: String) = "segment/$id"
     fun tripsThisWeek() = "trips?filter=week"
+    fun tripsMonth(fromMs: Long, toMs: Long) = "trips?filter=all&from=$fromMs&to=$toMs"
 
     // Routes that show the bottom nav. Sub-screens / full-bleed routes hide it
     // (Live, Summary, Trace, Segment detail, Export) per §4 / B1.
@@ -253,10 +255,14 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         }
         composable(
             route = Routes.TRIPS_PATTERN,
-            arguments = listOf(navArgument("filter") {
-                type = NavType.StringType
-                defaultValue = "all"
-            }),
+            arguments = listOf(
+                navArgument("filter") {
+                    type = NavType.StringType
+                    defaultValue = "all"
+                },
+                navArgument("from") { type = NavType.LongType; defaultValue = 0L },
+                navArgument("to") { type = NavType.LongType; defaultValue = 0L },
+            ),
         ) { backStackEntry ->
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
             val filter = if (backStackEntry.arguments?.getString("filter") == "week") {
@@ -264,9 +270,13 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             } else {
                 TripsFilter.ALL
             }
+            val from = backStackEntry.arguments?.getLong("from") ?: 0L
+            val to = backStackEntry.arguments?.getLong("to") ?: 0L
+            val window = if (from > 0L && to > from) from to to else null
             TripsScreen(
                 sessions = sessions,
                 initialFilter = filter,
+                dateWindow = window,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
             )
         }
@@ -300,7 +310,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 sessions = sessions,
                 segmentCount = segments.size,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
-                onOpenTrips = { navController.navigate(Routes.TRIPS) },
+                onOpenMonth = { from, to -> navController.navigate(Routes.tripsMonth(from, to)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
             )
         }
