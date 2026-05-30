@@ -31,12 +31,38 @@ fun PreviewRaceScreenReady() {
             RaceScreenContent(
                 serviceState = ServiceState(
                     isRecording = false,
-                    isSensorsEnabled = false,
+                    isSensorsEnabled = true,
                     currentSpeedMs = 0f,
                     currentAccelMs2 = 0f,
                     currentG = 1.0f,
                     currentAccuracyM = 3.5f,
-                    satellites = SatelliteInfo(usedInFix = 0, visible = 4)
+                    satellites = SatelliteInfo(usedInFix = 6, visible = 10)
+                ),
+                onStart = {},
+                onStop = {},
+                onToggleSensors = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Race Screen - Sensors Disabled")
+@Composable
+fun PreviewRaceScreenSensorsDisabled() {
+    RaceLoggerTheme {
+        SpeedAppShell(
+            currentDestination = mockDestination(MainDestination.RACE.route),
+            onNavigate = {}
+        ) {
+            RaceScreenContent(
+                serviceState = ServiceState(
+                    isRecording = false,
+                    isSensorsEnabled = false,
+                    currentSpeedMs = 0f,
+                    currentAccelMs2 = 0f,
+                    currentG = 0f,
+                    currentAccuracyM = null,
+                    satellites = SatelliteInfo(usedInFix = 0, visible = 0)
                 ),
                 onStart = {},
                 onStop = {},
@@ -94,9 +120,9 @@ fun PreviewSettingsScreen() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Sessions Screen")
+@Preview(showBackground = true, showSystemUi = true, name = "Sessions Screen - Populated")
 @Composable
-fun PreviewSessionsScreen() {
+fun PreviewSessionsScreenPopulated() {
     val mockSessions = listOf(
         SessionSummary("1", startTimeMs = 1715000000000L, endTimeMs = 1715003600000L, pointCount = 1200, maxSpeedMs = 25.5f),
         SessionSummary("2", startTimeMs = 1715100000000L, endTimeMs = 1715103600000L, pointCount = 1500, maxSpeedMs = 30.2f),
@@ -109,6 +135,23 @@ fun PreviewSessionsScreen() {
         ) {
             SessionsScreenContent(
                 sessions = mockSessions,
+                onSessionClick = {},
+                onDelete = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Sessions Screen - Empty")
+@Composable
+fun PreviewSessionsScreenEmpty() {
+    RaceLoggerTheme {
+        SpeedAppShell(
+            currentDestination = mockDestination(MainDestination.SESSIONS.route),
+            onNavigate = {}
+        ) {
+            SessionsScreenContent(
+                sessions = emptyList(),
                 onSessionClick = {},
                 onDelete = {}
             )
@@ -149,8 +192,6 @@ fun PreviewSessionDetailScreen() {
         notes = "This was a great testing session on the track."
     )
     RaceLoggerTheme {
-        // We do not wrap Detail screen in SpeedAppShell because the detail screen 
-        // handles its own Scaffold and TopAppBar, hiding the navigation bar in reality.
         SessionDetailContent(
             session = mockSession,
             points = mockPoints,

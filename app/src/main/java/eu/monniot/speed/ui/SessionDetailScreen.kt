@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.Session
+import eu.monniot.speed.util.FormatUtils
 import eu.monniot.speed.viewmodel.RaceViewModel
 
 @Composable
@@ -164,7 +165,7 @@ fun SessionDetailContent(
                 ListItem(headlineContent = { Text("Data Points") }, trailingContent = { Text("${points.size}") })
                 ListItem(headlineContent = { Text("Duration") }, trailingContent = { 
                     val duration = if (points.size >= 2) (points.last().elapsedRealtimeNs - points.first().elapsedRealtimeNs) / 1_000_000_000 else 0
-                    Text(formatDuration(duration.toInt()))
+                    Text(FormatUtils.formatDuration(duration.toInt()))
                 })
             }
         }

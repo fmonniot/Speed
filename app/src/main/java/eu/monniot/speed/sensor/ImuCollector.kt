@@ -7,7 +7,10 @@ import android.hardware.SensorManager
 import eu.monniot.speed.fusion.CoordinateTransformer
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class ImuSample(
     val accelWorld: FloatArray, // x, y, z in world frame
@@ -26,33 +29,35 @@ class ImuCollector(
     )
     val imuFlow: SharedFlow<ImuSample> = _imuFlow
 
+    private val _isActive = MutableStateFlow(false)
+    val isActive: StateFlow<Boolean> = _isActive.asStateFlow()
+
     private var rotationMatrix = FloatArray(9)
     private var lastRotationVector: FloatArray? = null
-    private var isStarted = false
 
     fun start() {
-        if (isStarted) return
+        if (_isActive.value) return
         
         val accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         val rotVec = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
         sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
         sensorManager.registerListener(this, rotVec, SensorManager.SENSOR_DELAY_GAME)
-        isStarted = true
+        _isActive.value = true
     }
 
     fun stop() {
-        if (!isStarted) return
+        if (!_isActive.value) return
         
         sensorManager.unregisterListener(this)
-        isStarted = false
+        _isActive.value = false
     }
 
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 lastRotationVector = event.values.clone()
-                CoordinateTransformer.getRotationMatrixFromVector(event.values, rotationMatrix)
+                CoordinateTransformer.getRotationMatrixFromVector(rotationMatrix, event.values)
             }
             Sensor.TYPE_LINEAR_ACCELERATION -> {
                 if (lastRotationVector != null) {
