@@ -22,3 +22,9 @@
 - Segments
   - [ ] The concept of segment is somewhat hidden. How can we make it more apparent to the user?
         Would a shortcut in Trips or Stats be useful? Needs UI/UX investigation first.
+- [ ] Rename app to be named Speed instead of "Race Logger"
+  - Debug builds should have a different package and name (suffixed " (debug)") so that I can run both
+    variants for testing
+- [ ] Investigate what app > battery > optimized or unrestricted on Samsung phones mean in terms of
+      generic Android, and if the app needs to worry/prompt the user about it. Maybe less precise access
+      to the GPS in the background (e.g. phone screen is turned off) ?
