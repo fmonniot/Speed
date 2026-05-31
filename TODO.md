@@ -80,7 +80,7 @@ Two candidate entry points were considered:
 ---
 
 ### U4 — Trip list rows don't show departure time
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/TripsScreen.kt`
 
 **Problem:** The date format is `SimpleDateFormat("d MMM", ...)`. For users who record multiple trips per day, there is no way to tell them apart at a glance.

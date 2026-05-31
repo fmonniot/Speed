@@ -51,7 +51,8 @@ fun TripsScreen(
     var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
 
-    val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+    // U4: include start time so multiple rides on the same day are distinguishable.
+    val dateFormat = remember { SimpleDateFormat("d MMM · HH:mm", Locale.getDefault()) }
 
     // Restrict to the date window first (when arriving month-scoped), then chip-filter + search.
     val windowed = if (dateWindow != null) {
