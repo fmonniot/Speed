@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import eu.monniot.speed.MainActivity
+import eu.monniot.speed.R
 import eu.monniot.speed.data.*
 import eu.monniot.speed.fusion.DataFusion
 import eu.monniot.speed.sensor.*
@@ -425,7 +426,7 @@ class RaceRecordingService : LifecycleService() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Speed")
             .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_speed_logo)
             .setContentIntent(mainPendingIntent)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
