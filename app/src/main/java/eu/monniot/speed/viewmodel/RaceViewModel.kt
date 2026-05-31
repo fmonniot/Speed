@@ -66,6 +66,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     val autoPause: StateFlow<Boolean> = settingsRepository.autoPause
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    // R1: true once the user has dismissed the one-time unrestricted-background battery prompt.
+    val batteryPromptDismissed: StateFlow<Boolean> = settingsRepository.batteryPromptDismissed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
 
@@ -103,6 +107,9 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     fun setAutoPause(enabled: Boolean) = viewModelScope.launch { settingsRepository.setAutoPause(enabled) }
     fun setUnits(units: Units) = viewModelScope.launch { settingsRepository.setUnits(units) }
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+
+    // R1: persist that the user dismissed the battery prompt so it is not shown again.
+    fun dismissBatteryPrompt() = viewModelScope.launch { settingsRepository.setBatteryPromptDismissed(true) }
 
     private fun startSensors() {
         val context = getApplication<Application>().applicationContext

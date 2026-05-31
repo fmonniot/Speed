@@ -26,6 +26,9 @@ class SettingsRepository(private val context: Context) {
         // Legacy boolean key (pre-F4). Still read for migration; no longer written.
         val DARK_THEME = booleanPreferencesKey("dark_theme")
         val THEME_MODE = stringPreferencesKey("theme_mode")
+        // R1: set once the user dismisses the "allow unrestricted background battery" prompt,
+        // so it is never shown again. Absent/false => eligible to show.
+        val BATTERY_PROMPT_DISMISSED = booleanPreferencesKey("battery_prompt_dismissed")
 
         const val DEFAULT_GPS_RATE_HZ = 10
         const val DEFAULT_IMU_RATE_HZ = 100
@@ -61,6 +64,9 @@ class SettingsRepository(private val context: Context) {
                 ?: if (preferences[DARK_THEME] == true) ThemeMode.DARK else ThemeMode.LIGHT
         }
 
+    val batteryPromptDismissed: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[BATTERY_PROMPT_DISMISSED] ?: false }
+
     suspend fun setAutoStartSensors(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTO_START_SENSORS] = enabled
@@ -91,5 +97,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setThemeMode(mode: ThemeMode) {
         context.dataStore.edit { preferences -> preferences[THEME_MODE] = mode.name }
+    }
+
+    suspend fun setBatteryPromptDismissed(dismissed: Boolean) {
+        context.dataStore.edit { preferences -> preferences[BATTERY_PROMPT_DISMISSED] = dismissed }
     }
 }
