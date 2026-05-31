@@ -52,7 +52,8 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### U3 — Segment concept is hidden
-**Status:** `todo`  
+**Status:** `blocked`  
+**Blocker:** This task needs a UX product decision before implementation: *which* additional Segments entry point to add (and exactly where). The two candidates have meaningfully different scope and visual implications, so I am not choosing on the user's behalf. Unblock by picking one of the options in **Findings** below (or specifying another).
 **Area:** Navigation, `ui/StatsScreen.kt`, potentially `ui/TripsScreen.kt`
 
 **Problem:** Users don't discover that segments exist. The Stats → Segments link row is the only entry point; it is easy to miss.
@@ -63,6 +64,18 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 
 **Acceptance criteria (to be refined after UX investigation):**
 - [ ] At least one additional, prominent path to the Segments list exists beyond the Stats overview.
+
+**Findings:**
+
+Current state: the only route to the Segments list (`Routes.SEGMENTS`) is the bordered link row at the bottom of Stats · Overview (spec §4.6 #5). The Summary screen has a *segment-PB* row, but it routes to `Routes.SEGMENTS` only conceptually filtered to "this ride's segments" — and it only reads as meaningful once a user already has segments defined. So for a user who has never created a segment, there is effectively no discoverable entry to the feature.
+
+Two candidate entry points were considered:
+
+1. **Shortcut/destination on the Trips screen.** Trips is the most-visited browsing surface. Options range from a non-scoping shortcut chip in the filter-chip row (cheap, but mixes a *navigation* affordance into a row whose other chips are *update-in-place* filters — inconsistent with the §4.4 interaction contract) to a top-bar trailing action. A top-bar action is cleaner but the Trips bar already carries `search` (§4.4); adding a second trailing icon for a secondary concept is questionable.
+
+2. **Contextual prompt on the Summary screen** ("Define a segment from this ride?"). This is the strongest *teaching* moment — the user has just finished a ride and has a concrete track to turn into a segment. It also dovetails with the existing segment-PB row. Cost: it touches the segment-creation flow (the §4.7 "Add" path: draw on map / pick from a ride), which is a larger change than a pure navigation link, and the "pick from a ride" creation path must exist for the prompt to lead anywhere useful.
+
+**Recommendation:** Add the contextual prompt on the Summary screen (option 2) — it is the highest-intent, most teachable surface and reinforces rather than clutters the existing interaction model — **but** confirm with the user first, because it depends on the segment-from-ride creation flow being in scope; if only a lightweight discoverability nudge is wanted, fall back to a single Segments destination reachable from the Stats tab area rather than overloading the Trips filter row.
 
 ---
 
