@@ -10,7 +10,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## Bugs
 
 ### B1 — Summary screen shows zero stats until Trace is opened
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SummaryScreen.kt`, `service/RaceRecordingService.kt`
 
 **Problem:** After stopping a recording and navigating to the Summary screen, all stat cards (distance, avg speed, max lateral G, etc.) show `—` or zero. Opening the Trace screen and going back fixes it.

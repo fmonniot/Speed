@@ -215,6 +215,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun getSession(sessionId: String) = repository.getSession(sessionId)
 
+    // B1: reactive session load so the Summary screen updates once stopRecording() finishes
+    // writing the aggregate columns, instead of racing it with a one-shot read.
+    fun observeSession(sessionId: String) = repository.observeSession(sessionId)
+
     // E2: per-session metrics computed on demand from the session's points.
     suspend fun getSessionStats(sessionId: String): SessionStats =
         SessionStatsComputer.compute(repository.getPointsForSession(sessionId))

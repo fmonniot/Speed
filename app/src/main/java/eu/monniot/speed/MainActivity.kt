@@ -231,8 +231,13 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         composable(Routes.SUMMARY) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
-            var session by remember(sessionId) { mutableStateOf<Session?>(null) }
-            LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }
+            // B1: observe the session reactively instead of a one-shot read. stopRecording()
+            // finalises the session (writes aggregate columns + endTimeMs) on a background
+            // coroutine that races navigation here. Gating on endTimeMs != null keeps the
+            // loading state until finalisation completes, so we never flash zero aggregates.
+            val loadedSession by remember(sessionId) { viewModel.observeSession(sessionId) }
+                .collectAsState(initial = null)
+            val session = loadedSession?.takeIf { it.endTimeMs != null }
             // NEW PB when this session's top speed beats every other recorded session. Require the
             // sessions list to be loaded first, otherwise all{} over an empty list flashes a PB.
             val topSpeed = session?.maxSpeedMs
@@ -254,10 +259,8 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
                 onRename = { newName ->
-                    session?.let { s ->
-                        viewModel.renameSession(s, newName)
-                        session = s.copy(name = newName) // reflect immediately
-                    }
+                    // Persist; the reactive observeSession flow re-emits with the new name.
+                    session?.let { s -> viewModel.renameSession(s, newName) }
                 },
                 onOpenTrace = { navController.navigate(Routes.traceFocusPeak(sessionId)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
