@@ -40,7 +40,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### U2 — Top-speed hero on Summary screen has no visual tap affordance
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SummaryScreen.kt`
 
 **Problem:** The top-speed `primaryContainer` card navigates to the Trace on tap (per spec §4.3 #3 and the wired `onOpenTrace` callback), but there is no visual cue that it is interactive — no `chevron_right`, no ripple hint, nothing. Users don't discover it.
