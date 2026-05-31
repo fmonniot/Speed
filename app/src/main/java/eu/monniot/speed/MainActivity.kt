@@ -383,6 +383,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val gpsRateHz by viewModel.gpsRateHz.collectAsState()
             val imuRateHz by viewModel.imuRateHz.collectAsState()
             val autoPause by viewModel.autoPause.collectAsState()
+            val autoStartSensors by viewModel.autoStartSensors.collectAsState()
             val units by viewModel.units.collectAsState()
             val darkTheme by viewModel.darkTheme.collectAsState()
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
@@ -396,6 +397,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 gpsRateHz = gpsRateHz,
                 imuRateHz = imuRateHz,
                 autoPause = autoPause,
+                autoStartSensors = autoStartSensors,
                 units = units,
                 darkTheme = darkTheme,
                 tripCount = tripCount,
@@ -403,6 +405,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onSetGpsRate = viewModel::setGpsRateHz,
                 onSetImuRate = viewModel::setImuRateHz,
                 onSetAutoPause = viewModel::setAutoPause,
+                onSetAutoStartSensors = viewModel::setAutoStartSensors,
                 onSetUnits = viewModel::setUnits,
                 onSetDarkTheme = viewModel::setDarkTheme,
                 onExportAll = { navController.navigate(Routes.EXPORT) },

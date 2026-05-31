@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.PauseCircle
+import androidx.compose.material.icons.rounded.SatelliteAlt
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Straighten
@@ -62,6 +63,7 @@ fun SettingsScreen(
     gpsRateHz: Int,
     imuRateHz: Int,
     autoPause: Boolean,
+    autoStartSensors: Boolean,
     units: Units,
     darkTheme: Boolean,
     tripCount: Int,
@@ -69,6 +71,7 @@ fun SettingsScreen(
     onSetGpsRate: (Int) -> Unit,
     onSetImuRate: (Int) -> Unit,
     onSetAutoPause: (Boolean) -> Unit,
+    onSetAutoStartSensors: (Boolean) -> Unit,
     onSetUnits: (Units) -> Unit,
     onSetDarkTheme: (Boolean) -> Unit,
     onExportAll: () -> Unit,
@@ -128,6 +131,20 @@ fun SettingsScreen(
                         SpeedSwitch(
                             checked = autoPause,
                             onCheckedChange = onSetAutoPause,
+                        )
+                    },
+                )
+                SettingsGroupDivider()
+                // F3: surface the auto-start preference so GPS/IMU can pre-warm on launch,
+                // avoiding a cold GPS fix at the start of a ride.
+                SettingRow(
+                    icon = Icons.Rounded.SatelliteAlt,
+                    label = "Auto-start sensors on launch",
+                    showChevron = false,
+                    trailing = {
+                        SpeedSwitch(
+                            checked = autoStartSensors,
+                            onCheckedChange = onSetAutoStartSensors,
                         )
                     },
                 )
@@ -437,6 +454,7 @@ private fun SettingsScreenPreview() {
             gpsRateHz = 10,
             imuRateHz = 100,
             autoPause = false,
+            autoStartSensors = false,
             units = Units.METRIC,
             darkTheme = false,
             tripCount = 142,
@@ -444,6 +462,7 @@ private fun SettingsScreenPreview() {
             onSetGpsRate = {},
             onSetImuRate = {},
             onSetAutoPause = {},
+            onSetAutoStartSensors = {},
             onSetUnits = {},
             onSetDarkTheme = {},
             onExportAll = {},

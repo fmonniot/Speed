@@ -125,7 +125,7 @@ Two candidate entry points were considered:
 ---
 
 ### F3 — Pre-warm GPS fix before the user taps Record
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt`, `ui/RideHomeScreen.kt`, `viewmodel/RaceViewModel.kt`
 
 **Problem:** GPS cold-start takes 15–60 seconds. If a user opens the app and immediately taps Record, the first portion of the ride has no GPS fix.
