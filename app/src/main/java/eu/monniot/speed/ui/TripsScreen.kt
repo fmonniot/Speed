@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,8 +25,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
+import eu.monniot.speed.R
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.ui.components.ListRow
 import eu.monniot.speed.ui.components.SpeedSearchBar
@@ -94,6 +97,14 @@ fun TripsScreen(
         topBar = {
             SpeedTopBar(
                 title = "Trips",
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_speed_logo),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 12.dp),
+                    )
+                },
                 trailingIcon = Icons.Rounded.Search,
                 onTrailingAction = { searchFocus.requestFocus() },
             )

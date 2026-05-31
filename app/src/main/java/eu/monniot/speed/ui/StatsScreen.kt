@@ -50,12 +50,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import eu.monniot.speed.R
 import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.SessionSummary
 import eu.monniot.speed.data.Units
@@ -186,6 +188,14 @@ fun StatsScreen(
         topBar = {
             SpeedTopBar(
                 title = "Statistics",
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_speed_logo),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 12.dp),
+                    )
+                },
                 trailingIcon = Icons.Rounded.DateRange,
                 onTrailingAction = { showDatePicker = true },
             )

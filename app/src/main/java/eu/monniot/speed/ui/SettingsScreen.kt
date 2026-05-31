@@ -45,10 +45,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.monniot.speed.R
 import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.ui.components.SectionLabel
@@ -89,6 +91,14 @@ fun SettingsScreen(
         topBar = {
             SpeedTopBar(
                 title = "Settings",
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_speed_logo),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 12.dp),
+                    )
+                },
                 trailingIcon = Icons.Rounded.HelpOutline,
                 onTrailingAction = { showHelp = true },
             )

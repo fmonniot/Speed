@@ -24,6 +24,7 @@ fun SpeedTopBar(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     trailingIcon: ImageVector? = null,
     onTrailingAction: (() -> Unit)? = null,
 ) {
@@ -35,14 +36,16 @@ fun SpeedTopBar(
             )
         },
         navigationIcon = {
-            onBack?.let {
-                IconButton(onClick = it) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = "Back",
                         tint = MaterialTheme.colorScheme.onSurface,
                     )
                 }
+            } else {
+                leadingContent?.invoke()
             }
         },
         actions = {

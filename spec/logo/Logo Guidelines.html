@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Speed — Logo Guidelines</title>
+<link rel="icon" href="assets/speed-favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600;8..144,700;8..144,800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --primary:#3b6939; --on-primary:#ffffff;
+    --primary-container:#bcf0b4; --on-primary-container:#002106;
+    --secondary-container:#d5e8cf; --tertiary:#38656a;
+    --surface:#f7fbf1; --surface-container:#ebefe5; --surface-container-high:#e5e9df;
+    --on-surface:#181d17; --on-surface-var:#424940; --outline:#72796f; --outline-var:#c1c9bd;
+    --error:#ba1a1a;
+    --sans:"Roboto Flex", system-ui, sans-serif;
+    --mono:"JetBrains Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--surface);color:var(--on-surface);font-family:var(--sans);-webkit-font-smoothing:antialiased;padding:64px 40px 96px;}
+  .wrap{max-width:1140px;margin:0 auto;}
+
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--primary);font-weight:600;display:flex;align-items:center;gap:10px;}
+  .kicker::before{content:"";width:26px;height:2px;background:var(--primary);display:inline-block;}
+  h1{font-size:54px;font-weight:700;letter-spacing:-0.035em;line-height:0.98;margin:20px 0 0;max-width:16ch;}
+  .lede{font-size:17px;line-height:1.65;color:var(--on-surface-var);max-width:66ch;margin:22px 0 0;text-wrap:pretty;}
+  .lede b{color:var(--on-surface);font-weight:600;}
+
+  .sec{margin-top:72px;}
+  .sec-label{font-family:var(--mono);font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--on-surface-var);margin:0 0 26px;display:flex;align-items:center;gap:14px;}
+  .sec-label::after{content:"";flex:1;height:1px;background:var(--outline-var);}
+  .sec-intro{font-size:15px;line-height:1.6;color:var(--on-surface-var);max-width:64ch;margin:-12px 0 30px;text-wrap:pretty;}
+
+  /* hero lockup */
+  .hero-lockup{
+    background:#fff;border:1px solid var(--outline-var);border-radius:34px;
+    padding:64px;display:flex;align-items:center;gap:34px;justify-content:center;
+  }
+  .hero-lockup .tile{width:132px;height:132px;border-radius:32px;background:var(--primary);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 16px 34px -18px rgba(0,33,6,0.55);}
+  .hero-lockup .tile img{width:132px;height:132px;}
+  .hero-lockup .word{font-size:84px;font-weight:700;letter-spacing:-0.05em;line-height:1;color:var(--on-surface);}
+
+  /* generic card grid */
+  .cards{display:grid;gap:24px;}
+  .cards.c4{grid-template-columns:repeat(4,1fr);}
+  .cards.c3{grid-template-columns:repeat(3,1fr);}
+  .cards.c2{grid-template-columns:repeat(2,1fr);}
+  .ucard{background:#fff;border:1px solid var(--outline-var);border-radius:24px;padding:26px;display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .ucard .stage{width:100%;aspect-ratio:1;border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .ucard .stage img{width:64%;height:64%;}
+  .ucard .meta{text-align:center;}
+  .ucard .meta .t{font-size:15px;font-weight:600;letter-spacing:-0.01em;}
+  .ucard .meta .d{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;color:var(--outline);text-transform:uppercase;margin-top:5px;line-height:1.5;}
+  .stage.green{background:var(--primary);}
+  .stage.container{background:var(--primary-container);}
+  .stage.dark{background:#11210d;}
+  .stage.outline{background:var(--surface);border:1.5px solid var(--outline-var);}
+  .stage.checker{background:
+    linear-gradient(45deg,#e2e8dd 25%,transparent 25%),
+    linear-gradient(-45deg,#e2e8dd 25%,transparent 25%),
+    linear-gradient(45deg,transparent 75%,#e2e8dd 75%),
+    linear-gradient(-45deg,transparent 75%,#e2e8dd 75%);
+    background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0;background-color:#f3f7ee;}
+
+  /* clear space diagram */
+  .clearspace{background:#fff;border:1px solid var(--outline-var);border-radius:28px;padding:48px;display:flex;gap:48px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .cs-diagram{position:relative;width:300px;height:300px;flex:none;}
+  .cs-pad{position:absolute;inset:0;border:1.5px dashed var(--outline);border-radius:14px;}
+  .cs-inner{position:absolute;inset:75px;background:var(--primary);border-radius:24px;display:flex;align-items:center;justify-content:center;}
+  .cs-inner img{width:75%;height:75%;}
+  .cs-tick{position:absolute;font-family:var(--mono);font-size:11px;color:var(--primary);font-weight:600;background:#fff;padding:2px 6px;}
+  .cs-tick.top{top:30px;left:50%;transform:translateX(-50%);}
+  .cs-tick.left{left:14px;top:50%;transform:translateY(-50%);}
+  .cs-mod{position:absolute;width:75px;height:75px;border:1.5px solid var(--primary-container);border-radius:8px;}
+  .cs-text{max-width:34ch;}
+  .cs-text h3{font-size:20px;font-weight:600;letter-spacing:-0.02em;margin:0 0 12px;}
+  .cs-text p{font-size:14.5px;line-height:1.62;color:var(--on-surface-var);margin:0 0 14px;text-wrap:pretty;}
+  .cs-text .badge{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--primary);background:var(--primary-container);border-radius:8px;padding:4px 10px;}
+
+  /* min size strip */
+  .minsize{background:#fff;border:1px solid var(--outline-var);border-radius:28px;padding:40px 44px;}
+  .ms-row{display:flex;align-items:flex-end;gap:40px;flex-wrap:wrap;}
+  .ms-item{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .ms-tile{border-radius:22%;background:var(--primary);display:flex;align-items:center;justify-content:center;}
+  .ms-tile img{width:78%;height:78%;}
+  .ms-item .cap{font-family:var(--mono);font-size:11px;color:var(--on-surface-var);}
+  .ms-item .sub{font-family:var(--mono);font-size:9px;color:var(--outline);text-transform:uppercase;letter-spacing:0.08em;}
+  .ms-divider{width:1px;align-self:stretch;background:var(--outline-var);margin:0 6px;}
+  .ms-note{margin-top:24px;font-size:13.5px;color:var(--on-surface-var);line-height:1.6;max-width:62ch;}
+  .ms-note b{color:var(--on-surface);}
+
+  /* do / dont */
+  .dd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .dd{background:#fff;border:1px solid var(--outline-var);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;}
+  .dd .stage{aspect-ratio:16/11;display:flex;align-items:center;justify-content:center;position:relative;}
+  .dd .stage img{width:42%;height:42%;}
+  .dd .tag{display:flex;align-items:center;gap:8px;padding:14px 16px;font-size:13.5px;line-height:1.4;border-top:1px solid var(--outline-var);}
+  .dd .tag .dot{width:18px;height:18px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;}
+  .dd.ok .dot{background:var(--primary);}
+  .dd.no .dot{background:var(--error);}
+  .dd .tag span{color:var(--on-surface-var);}
+  /* misuse renders */
+  .mis-stretch img{width:64% !important;height:34% !important;}
+  .mis-rotate img{transform:rotate(28deg);}
+  .mis-recolor{background:#6a3bd0 !important;}
+  .stage.shadow img{filter:drop-shadow(0 6px 5px rgba(0,0,0,0.55));}
+
+  /* download row */
+  .dl{margin-top:30px;background:var(--surface-container);border-radius:24px;padding:28px 32px;}
+  .dl h3{font-size:16px;font-weight:600;margin:0 0 14px;letter-spacing:-0.01em;}
+  .dl .files{display:flex;flex-wrap:wrap;gap:10px;}
+  .dl .file{font-family:var(--mono);font-size:12px;color:var(--on-surface);background:#fff;border:1px solid var(--outline-var);border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px;}
+  .dl .file::before{content:"SVG";font-size:8px;font-weight:600;letter-spacing:0.08em;color:var(--primary);background:var(--primary-container);border-radius:4px;padding:2px 5px;}
+
+  .footnote{margin-top:56px;padding-top:26px;border-top:1px solid var(--outline-var);font-size:14px;line-height:1.7;color:var(--on-surface-var);max-width:74ch;text-wrap:pretty;}
+  .footnote b{color:var(--on-surface);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="kicker">Speed · Logo guidelines</div>
+  <h1>The Dial — production kit</h1>
+  <p class="lede">The chosen mark: a <b>speedometer arc</b> with the needle swept into the upper register, built on the locked Material&nbsp;3 green seed. This page is the working spec — primary lockup, the full asset set, clear&#8209;space and minimum&#8209;size rules, and misuse to avoid. Source SVGs are in the <b>/assets</b> folder and listed at the bottom.</p>
+
+  <!-- PRIMARY LOCKUP -->
+  <div class="sec">
+    <p class="sec-label">Primary lockup</p>
+    <div class="hero-lockup">
+      <div class="tile"><img src="assets/speed-launcher.svg" alt="Speed icon" /></div>
+      <span class="word">Speed</span>
+    </div>
+  </div>
+
+  <!-- ASSET SET -->
+  <div class="sec">
+    <p class="sec-label">Asset set</p>
+    <p class="sec-intro">Five renderings cover every surface. The launcher is the default; the themed and dark variants serve Material&nbsp;You theming and dark wallpapers; the monochrome version is the status&#8209;bar / notification glyph.</p>
+    <div class="cards c4">
+      <div class="ucard"><div class="stage green"><img src="assets/speed-launcher.svg" alt="" /></div><div class="meta"><div class="t">Launcher</div><div class="d">white on primary</div></div></div>
+      <div class="ucard"><div class="stage container"><img src="assets/speed-tonal.svg" alt="" /></div><div class="meta"><div class="t">Themed / tonal</div><div class="d">primary on container</div></div></div>
+      <div class="ucard"><div class="stage outline"><img src="assets/display/mono-green.svg" alt="" /></div><div class="meta"><div class="t">Outline</div><div class="d">single colour</div></div></div>
+      <div class="ucard"><div class="stage dark"><img src="assets/display/mono-light.svg" alt="" /></div><div class="meta"><div class="t">Dark</div><div class="d">container on dark</div></div></div>
+    </div>
+    <div class="cards c3" style="margin-top:24px;">
+      <div class="ucard"><div class="stage checker"><img src="assets/display/mono-dark.svg" alt="" /></div><div class="meta"><div class="t">Monochrome glyph</div><div class="d">transparent · notification / status bar</div></div></div>
+      <div class="ucard"><div class="stage green"><img src="assets/speed-adaptive-foreground.svg" alt="" /></div><div class="meta"><div class="t">Adaptive foreground</div><div class="d">108dp · art inside 72dp safe zone</div></div></div>
+      <div class="ucard"><div class="stage green"><img src="assets/speed-favicon.svg" alt="" /></div><div class="meta"><div class="t">Favicon</div><div class="d">thicker stroke for small sizes</div></div></div>
+    </div>
+  </div>
+
+  <!-- CLEAR SPACE -->
+  <div class="sec">
+    <p class="sec-label">Clear space</p>
+    <div class="clearspace">
+      <div class="cs-diagram">
+        <div class="cs-pad"></div>
+        <div class="cs-mod" style="top:0;left:0;"></div>
+        <div class="cs-inner"><img src="assets/speed-launcher.svg" alt="" /></div>
+        <span class="cs-tick top">½×</span>
+        <span class="cs-tick left">½×</span>
+      </div>
+      <div class="cs-text">
+        <h3>Give it room</h3>
+        <p>Keep clear space equal to <b>half the icon's width (½×)</b> on every side, free of type, imagery, or other logos. The dashed boundary marks the minimum.</p>
+        <p>The corner module shows the unit: ½× is exactly the corner radius of the launcher tile, so the spacing always scales with the mark.</p>
+        <span class="badge">clear space = ½ × width</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIN SIZE -->
+  <div class="sec">
+    <p class="sec-label">Minimum size</p>
+    <div class="minsize">
+      <div class="ms-row">
+        <div class="ms-item"><div class="ms-tile" style="width:96px;height:96px"><img src="assets/speed-launcher.svg" alt="" /></div><span class="cap">48&nbsp;dp</span><span class="sub">launcher</span></div>
+        <div class="ms-item"><div class="ms-tile" style="width:64px;height:64px"><img src="assets/speed-launcher.svg" alt="" /></div><span class="cap">32&nbsp;dp</span><span class="sub">list / top bar</span></div>
+        <div class="ms-item"><div class="ms-tile" style="width:48px;height:48px"><img src="assets/speed-favicon.svg" alt="" /></div><span class="cap">24&nbsp;dp</span><span class="sub">status bar · use favicon</span></div>
+        <div class="ms-divider"></div>
+        <div class="ms-item"><div class="ms-tile" style="width:32px;height:32px"><img src="assets/speed-favicon.svg" alt="" /></div><span class="cap">16&nbsp;px</span><span class="sub">favicon · floor</span></div>
+      </div>
+      <p class="ms-note">Never render the mark below <b>16&nbsp;px</b>. At and below ~24&nbsp;dp switch to the <b>favicon</b> build — its thicker stroke and larger hub keep the arc and needle from closing up. Above 32&nbsp;dp the standard launcher is correct.</p>
+    </div>
+  </div>
+
+  <!-- DO / DONT -->
+  <div class="sec">
+    <p class="sec-label">Misuse</p>
+    <p class="sec-intro">The mark is a single, fixed relationship between arc, needle and hub. Don't redraw it.</p>
+    <div class="dd-grid">
+      <div class="dd ok"><div class="stage green"><img src="assets/speed-launcher.svg" alt="" /></div><div class="tag"><span class="dot">&#10003;</span><span>Use the supplied artwork at its true proportions.</span></div></div>
+      <div class="dd no"><div class="stage green mis-stretch"><img src="assets/speed-launcher.svg" alt="" /></div><div class="tag"><span class="dot">&times;</span><span>Don't stretch or distort the proportions.</span></div></div>
+      <div class="dd no"><div class="stage green mis-rotate"><img src="assets/speed-launcher.svg" alt="" /></div><div class="tag"><span class="dot">&times;</span><span>Don't rotate or re&#8209;angle the needle.</span></div></div>
+      <div class="dd no"><div class="stage mis-recolor"><img src="assets/speed-launcher.svg" alt="" /></div><div class="tag"><span class="dot">&times;</span><span>Don't recolour outside the green&#8209;seed palette.</span></div></div>
+      <div class="dd no"><div class="stage green shadow"><img src="assets/display/mono-white.svg" alt="" /></div><div class="tag"><span class="dot">&times;</span><span>Don't add drop shadows, bevels or glows.</span></div></div>
+      <div class="dd no"><div class="stage container"><img src="assets/display/mono-lowcontrast.svg" alt="" /></div><div class="tag"><span class="dot">&times;</span><span>Don't use low&#8209;contrast tone&#8209;on&#8209;tone fills.</span></div></div>
+    </div>
+  </div>
+
+  <!-- DOWNLOAD -->
+  <div class="sec">
+    <p class="sec-label">Source files</p>
+    <div class="dl">
+      <h3>/assets — vector, infinitely scalable</h3>
+      <div class="files">
+        <span class="file">speed-launcher.svg</span>
+        <span class="file">speed-tonal.svg</span>
+        <span class="file">speed-monochrome.svg</span>
+        <span class="file">speed-adaptive-foreground.svg</span>
+        <span class="file">speed-adaptive-background.svg</span>
+        <span class="file">speed-favicon.svg</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote"><b>Adaptive icon:</b> pair <b>speed-adaptive-foreground.svg</b> over <b>speed-adaptive-background.svg</b> in your Android <code>ic_launcher</code> — the foreground art already sits inside the 72&nbsp;dp safe zone, so it survives any mask (circle, squircle, rounded square). <b>Monochrome</b> uses <code>currentColor</code>, so it inherits the system tint for themed icons and the notification tray. Want PNG exports at specific densities (mdpi&rarr;xxxhdpi) or a packaged ZIP? Say the word and I'll generate them.</p>
+
+</div>
+</body>
+</html>
