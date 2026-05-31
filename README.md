@@ -1,74 +1,94 @@
-# Android Race Data Logger
+# Speed
 
-A production-quality Android application for recording race data (speed, acceleration, GPS) at 100ms precision.
+A motorcycle/vehicle race-data logger for Android. Records GPS + IMU data at high precision, fuses them with a Kalman filter, and lets you review, analyse and export each ride.
 
-## Features
+## What it does
 
-- **High-Precision Logging:** 100ms (10Hz) data collection interval.
-- **Sensor Fusion:** Combines GPS data with IMU (Linear Accelerometer + Rotation Vector) using a Kalman filter for smooth and accurate speed/acceleration estimation.
-- **World-Frame Acceleration:** Automatically converts device-frame acceleration to world-frame (gravity removed), making it orientation-independent.
-- **Foreground Service:** Continuous recording even when the app is in the background or the screen is off.
-- **Data Management:** Uses Room (SQLite) for structured storage.
-- **CSV Export:** Export your race sessions to CSV for external analysis.
-- **Modern UI:** Built with Jetpack Compose and Material 3.
+- Records speed, acceleration, lean angle, lateral G and GPS track at up to 10 Hz (GPS) / 100 Hz (IMU).
+- Fuses GPS and IMU into a smooth Kalman-filtered speed estimate with zero-velocity updates (ZUPT) during standstills.
+- Stores every ride in a local Room database (no cloud, fully offline).
+- Lets you define **segments** (user-defined road stretches) that are automatically timed on every matching ride.
+- Exports rides as **CSV**, **GPX** or **FIT** (single-session share or bulk ZIP).
 
-## Tech Stack
+## Screens
+
+| Tab | Screen | Purpose |
+|---|---|---|
+| Ride | Home | Sensor status, last ride card, record FAB |
+| Ride | Live HUD | Glanceable during a ride — speed hero, G / lean / accel / altitude tiles |
+| Ride | Summary | Post-ride stats, PB badge, segment PB count |
+| Trips | List | Browse and filter all past rides |
+| Trips | Trace | Speed + lateral-G charts, scrub playhead, GPS map |
+| Stats | Overview | Distance trend, records grid, 6-month bar chart |
+| Stats | Segments | Timed road segments, best times, trend arrows |
+| Stats | Segment detail | Attempt history with relative-bar progress |
+| Settings | Settings | GPS/IMU rates, auto-pause, units, dark theme |
+| Settings | Export | Bulk export: format × scope × include toggles |
+
+## Tech stack
 
 - **Language:** Kotlin
-- **UI:** Jetpack Compose (Material 3)
-- **Architecture:** MVVM + Foreground Service
-- **Concurrency:** Kotlin Coroutines & Flow
+- **UI:** Jetpack Compose + Material 3 (green seed scheme, light + dark)
+- **Architecture:** MVVM + foreground `LifecycleService`
+- **Concurrency:** Kotlin Coroutines + Flow
+- **Database:** Room v6 (`race_db`)
+- **Settings:** DataStore Preferences
 - **Location:** Google Play Services Fused Location Provider
-- **Database:** Room
-- **Build System:** Gradle Kotlin DSL
+- **Map:** MapLibre Android SDK (open-source, no API key)
+- **Build:** Gradle Kotlin DSL, KSP
 
-## Data Extraction & Debugging
+## Building
 
-### 1. Standard Export (Recommended)
-Use the **"Export"** button in the **Sessions** screen. 
-- If "Record Raw Traces" is **OFF**: Exports a single `.csv` file containing processed/aggregated data.
-- If "Record Raw Traces" is **ON**: Exports a `.zip` file containing both `processed_data.csv` and `raw_trace.csv` (100Hz IMU samples).
+Requires Android Studio (or the command-line Gradle wrapper). No API keys needed.
 
-### 2. Manual Extraction via Android Studio
-If you cannot use the UI share sheet, you can pull files directly from the device:
+```bash
+# Debug APK
+./gradlew :app:assembleDebug
 
-#### Raw Traces (Permanent until session deleted)
-- **Path**: `/sdcard/Android/data/eu.monniot.speed/files/raw_traces/`
-- **Method**: Use **Device File Explorer** in Android Studio or `adb pull`:
-  ```bash
-  adb pull /sdcard/Android/data/eu.monniot.speed/files/raw_traces/ .
-  ```
+# Unit tests
+./gradlew :app:test
 
-#### Temporary Export Cache
-- **Path**: `/data/data/eu.monniot.speed/cache/`
-- **Note**: Requires a Debug build to view in Device File Explorer on non-rooted physical devices.
+# Instrumented tests (device/emulator required)
+./gradlew :app:connectedAndroidTest
 
-## Setup Instructions
+# Lint
+./gradlew :app:lint
+```
 
-1. **Clone/Copy Files:** Ensure all files are placed in their respective paths as generated.
-2. **Sync Project:** Open the project in Android Studio and perform a Gradle Sync.
-3. **Permissions:** The app requires the following permissions (requested at runtime):
-    - `ACCESS_FINE_LOCATION`
-    - `POST_NOTIFICATIONS` (on Android 13+)
-4. **Google Play Services:** Ensure the device/emulator has Google Play Services installed for location tracking.
-5. **Build & Run:** Hit 'Run' in Android Studio.
+- minSdk 26 · targetSdk 34 · JVM toolchain 17
+- Needs `ACCESS_FINE_LOCATION` and (Android 13+) `POST_NOTIFICATIONS` — requested at runtime.
 
-## Implementation Details
+## Exporting data
 
-- **Clock Alignment:** All sensors and location updates are synced using `SystemClock.elapsedRealtimeNanos()`.
-- **Kalman Filter:** A 1D Kalman filter integrates IMU acceleration with GPS speed measurements.
-- **Battery Optimization:** Uses a `WakeLock` during recording to ensure consistent timing while allowing the screen to turn off.
-- **Thread Safety:** Data fusion runs on `Dispatchers.Default`, while database operations use `Dispatchers.IO`.
+From the **Settings → Export** screen, choose CSV / GPX / FIT, select which trips and data streams to include, then tap Export. The result is shared as a ZIP via the system share sheet.
 
-## Exported CSV Format (Processed)
+### CSV columns (processed)
 
-The processed CSV contains:
-- `elapsed_ms`: Time since the start of the session.
-- `wall_clock_iso`: ISO-8601 formatted system time.
-- `lat`, `lon`, `altitude_m`: GPS coordinates and altitude.
-- `gps_speed_ms`: Raw speed from GPS (m/s).
-- `gps_accuracy_m`: GPS horizontal accuracy (meters).
-- `accel_x`, `accel_y`, `accel_z`: World-frame linear acceleration (m/s²).
-- `accel_magnitude`: Vector magnitude of acceleration.
-- `derived_speed_ms`: Kalman-filtered speed (m/s).
-- `derived_accel_ms2`: Acceleration derived from the filtered speed.
+| Column | Description |
+|---|---|
+| `elapsed_ms` | Milliseconds since session start |
+| `wall_clock_iso` | ISO-8601 wall-clock time |
+| `lat`, `lon`, `altitude_m` | GPS position |
+| `gps_speed_ms` | Raw GPS speed (m/s) |
+| `gps_accuracy_m` | GPS horizontal accuracy (m) |
+| `accel_x/y/z` | World-frame linear acceleration (m/s²) |
+| `accel_magnitude` | Acceleration vector magnitude |
+| `derived_speed_ms` | Kalman-fused speed (m/s) |
+| `derived_accel_ms2` | Signed acceleration from fused speed |
+
+### Manual extraction via adb
+
+Raw sensor traces (when "Record raw traces" is on):
+```bash
+adb pull /sdcard/Android/data/eu.monniot.speed/files/raw_traces/ .
+```
+
+Temporary export cache (debug builds only):
+```
+/data/data/eu.monniot.speed/cache/
+```
+
+## Design reference
+
+Visual design is specified in [`spec/design-spec.md`](spec/design-spec.md) (Material 3 Expressive, green seed).  
+Component layout details are in [`spec/component-reference.md`](spec/component-reference.md).
