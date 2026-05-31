@@ -29,6 +29,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            // F7: let debug and release coexist on one device. Debug installs as
+            // eu.monniot.speed.debug; the launcher label is overridden to "Speed (debug)"
+            // via src/debug/res/values/strings.xml (app_name). Release identity is unchanged.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = " (debug)"
+        }
     }
     buildFeatures {
         compose = true

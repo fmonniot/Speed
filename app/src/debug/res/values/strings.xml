@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- F7: debug variant launcher name so it's distinguishable from release on-device.
+         Overrides the main source set's app_name (referenced by android:label). -->
+    <string name="app_name">Speed (debug)</string>
+</resources>

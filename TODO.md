@@ -184,7 +184,7 @@ Two candidate entry points were considered:
 ---
 
 ### F7 — Debug build: separate package and display name
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `app/build.gradle.kts` → `buildTypes { debug { … } }`
 
 **Change:** Add `applicationIdSuffix ".debug"` and `versionNameSuffix " (debug)"` to the debug build type so that debug and release builds can coexist on the same device.
