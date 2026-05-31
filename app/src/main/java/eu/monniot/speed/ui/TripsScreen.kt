@@ -11,9 +11,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,11 +47,30 @@ fun TripsScreen(
     onOpenSummary: (String) -> Unit,         // pass the row's sessionId
     modifier: Modifier = Modifier,
     dateWindow: Pair<Long, Long>? = null,    // optional [from, to) ms window (e.g. a Stats month bar)
+    onDeleteSession: (String) -> Unit = {},  // F1: permanently delete a trip (incl. raw trace file)
 ) {
     val units = LocalUnits.current
     var filter by remember { mutableStateOf(initialFilter) }
     var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
+
+    // F1: trip pending delete confirmation (long-press a row). Pair of (sessionId, displayName).
+    var pendingDelete by remember { mutableStateOf<Pair<String, String>?>(null) }
+    pendingDelete?.let { (id, name) ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete trip?") },
+            text = { Text("\"$name\" and its recorded data will be permanently deleted. This cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { onDeleteSession(id); pendingDelete = null }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            },
+        )
+    }
 
     // U4: include start time so multiple rides on the same day are distinguishable.
     val dateFormat = remember { SimpleDateFormat("d MMM · HH:mm", Locale.getDefault()) }
@@ -152,6 +173,7 @@ fun TripsScreen(
                         trailingValue = UnitFormat.speedValue(session.maxSpeedMs ?: 0f, units),
                         trailingUnit = UnitFormat.speedUnit(units),
                         onClick = { onOpenSummary(session.sessionId) },
+                        onLongClick = { pendingDelete = session.sessionId to name },
                     )
                 }
             }

@@ -96,7 +96,7 @@ Two candidate entry points were considered:
 ## Features
 
 ### F1 — Delete trips from the UI
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/TripsScreen.kt` and/or `ui/SummaryScreen.kt`
 
 **Note:** The backend is already complete. `RaceViewModel.deleteSession()` calls `RaceRepository.deleteSession()` which calls `dao.deleteFullSession()` and removes the raw trace file from external storage. This is purely a UI task.

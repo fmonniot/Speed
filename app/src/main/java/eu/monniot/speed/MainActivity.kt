@@ -291,6 +291,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 initialFilter = filter,
                 dateWindow = window,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
+                onDeleteSession = { id -> viewModel.deleteSession(id) },
             )
         }
         composable(
