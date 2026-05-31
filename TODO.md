@@ -110,7 +110,7 @@ Two candidate entry points were considered:
 ---
 
 ### F2 — Add a Stop action to the foreground notification
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt` → `createNotification()`
 
 **Problem:** When the app is backgrounded and the screen is off, the only way to stop recording or kill the service is to re-open the app. The notification has no interactive action.

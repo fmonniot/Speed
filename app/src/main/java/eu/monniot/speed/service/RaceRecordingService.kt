@@ -379,12 +379,23 @@ class RaceRecordingService : LifecycleService() {
         val mainIntent = Intent(this, MainActivity::class.java)
         val mainPendingIntent = PendingIntent.getActivity(this, 0, mainIntent, PendingIntent.FLAG_IMMUTABLE)
 
+        // F2: Stop action — sends ACTION_STOP_SENSORS to this service so the user can stop
+        // recording and tear the service down from the notification without re-opening the app.
+        // stopSensors() also finalises any in-progress recording and removes the notification.
+        val stopIntent = Intent(this, RaceRecordingService::class.java).apply {
+            action = ACTION_STOP_SENSORS
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this, 1, stopIntent, PendingIntent.FLAG_IMMUTABLE,
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Race Logger")
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(mainPendingIntent)
             .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", stopPendingIntent)
             .build()
     }
 
