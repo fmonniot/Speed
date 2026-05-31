@@ -371,10 +371,11 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val segments by viewModel.segmentListItems.collectAsState()
             StatsScreen(
                 sessions = sessions,
-                segmentCount = segments.size,
+                segments = segments,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenMonth = { from, to -> navController.navigate(Routes.tripsMonth(from, to)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
+                onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
             )
         }
         composable(Routes.SEGMENTS) {

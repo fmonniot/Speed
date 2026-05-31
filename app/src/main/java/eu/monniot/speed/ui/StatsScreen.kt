@@ -1,10 +1,11 @@
 package eu.monniot.speed.ui
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,14 +14,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Moving
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.rounded.ArrowDownward
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -41,13 +48,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import eu.monniot.speed.data.SegmentListItem
 import eu.monniot.speed.data.SessionSummary
+import eu.monniot.speed.data.Units
 import eu.monniot.speed.ui.components.SpeedSelectableChip
 import eu.monniot.speed.ui.components.SpeedTopBar
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -68,10 +79,11 @@ enum class StatsRange { THIS_YEAR, NINETY_DAYS, ALL_TIME }
 @Composable
 fun StatsScreen(
     sessions: List<SessionSummary>,  // all sessions, newest-first
-    segmentCount: Int,                // number of tracked segments (E4)
+    segments: List<SegmentListItem>,  // tracked segments (E4); U3 surfaces the top ones inline
     onOpenSummary: (String) -> Unit,  // open the ride holding a record
     onOpenMonth: (startMs: Long, endMsExclusive: Long) -> Unit, // month-bar tap → that month's trips
-    onOpenSegments: () -> Unit,
+    onOpenSegments: () -> Unit,        // U3: "See all" → full Segment list
+    onOpenSegment: (String) -> Unit,   // U3: a carousel card → that segment's detail
     modifier: Modifier = Modifier,
 ) {
     val units = LocalUnits.current
@@ -347,49 +359,14 @@ fun StatsScreen(
                 }
             }
 
-            // ── Segments link row ────────────────────────────────────────
-            Surface(
-                onClick = onOpenSegments,
-                shape = RoundedCornerShape(SpeedDimens.radiusBorderedRow),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-                    .height(56.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 18.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Timer,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            text = "$segmentCount tracked segments",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight(500),
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
+            // ── Segments section (U3: elevated from a single link row) ───
+            SegmentsSection(
+                segments = segments,
+                units = units,
+                onOpenSegments = onOpenSegments,
+                onOpenSegment = onOpenSegment,
+                modifier = Modifier.padding(top = 20.dp),
+            )
 
             // Bottom breathing room above nav bar
             Spacer(modifier = Modifier.height(24.dp))
@@ -555,6 +532,244 @@ private fun RecordCard(
     }
 }
 
+// ── Private: Segments section (§4.6, U3) ─────────────────────────────────────
+
+@Composable
+private fun SegmentsSection(
+    segments: List<SegmentListItem>,
+    units: Units,
+    onOpenSegments: () -> Unit,
+    onOpenSegment: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Header: "N SEGMENTS" + "See all" (only when there are any to list).
+        Row(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = if (segments.isEmpty()) "SEGMENTS" else "${segments.size} SEGMENTS",
+                fontSize = 12.sp,
+                fontWeight = FontWeight(600),
+                letterSpacing = 0.08.em,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (segments.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable(onClick = onOpenSegments),
+                ) {
+                    Text(
+                        text = "See all",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight(600),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (segments.isEmpty()) {
+            SegmentsEmptyPrompt(onOpenSegments = onOpenSegments)
+        } else {
+            // Favourites/goals first, then most-run; show the top handful as a carousel.
+            val topSegments = remember(segments) {
+                segments.sortedWith(
+                    compareByDescending<SegmentListItem> { it.isFavourite || it.isGoal }
+                        .thenByDescending { it.runCount },
+                ).take(6)
+            }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 0.dp),
+            ) {
+                items(topSegments, key = { it.segmentId }) { item ->
+                    SegmentMiniCard(
+                        item = item,
+                        units = units,
+                        onClick = { onOpenSegment(item.segmentId) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Inline teaching prompt shown when the user has no segments yet — explains the concept
+// and links to the Segment list (where one can be created).
+@Composable
+private fun SegmentsEmptyPrompt(onOpenSegments: () -> Unit) {
+    Surface(
+        onClick = onOpenSegments,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(SpeedDimens.radiusMediumTonal),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(16.dp),
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(SpeedDimens.listRowIconSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Track a segment",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight(600),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = "Pick a stretch of road and Speed times you across it on every ride.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+// Compact carousel card for one tracked segment: name, distance · runs, best time, trend.
+@Composable
+private fun SegmentMiniCard(
+    item: SegmentListItem,
+    units: Units,
+    onClick: () -> Unit,
+) {
+    val isHighlighted = item.isFavourite || item.isGoal
+    val delta = if (item.lastTimeMs != null && item.previousTimeMs != null)
+        item.lastTimeMs - item.previousTimeMs
+    else
+        null
+
+    Surface(
+        onClick = onClick,
+        color = if (isHighlighted)
+            MaterialTheme.colorScheme.primaryContainer
+        else
+            MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = if (isHighlighted)
+            MaterialTheme.colorScheme.onPrimaryContainer
+        else
+            MaterialTheme.colorScheme.onSurface,
+        shape = RoundedCornerShape(SpeedDimens.radiusMediumTonal),
+        modifier = Modifier.width(180.dp),
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = item.name,
+                fontSize = 15.sp,
+                fontWeight = FontWeight(600),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${UnitFormat.distance(item.distanceM, units)} · ${item.runCount} runs",
+                fontSize = 12.sp,
+                color = LocalContentColorAlpha(),
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = if (item.bestTimeMs != null) formatSegmentTime(item.bestTimeMs) else "—",
+                fontSize = 20.sp,
+                fontWeight = FontWeight(700),
+            )
+            // Trend vs the previous attempt.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(top = 2.dp),
+            ) {
+                when {
+                    delta != null && delta < 0 -> {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowDownward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Text(
+                            text = "${"%.1f".format(kotlin.math.abs(delta) / 1000.0)}s faster",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    delta != null && delta > 0 -> {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowUpward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Text(
+                            text = "${"%.1f".format(delta / 1000.0)}s slower",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    else -> {
+                        Icon(
+                            imageVector = Icons.Rounded.Remove,
+                            contentDescription = null,
+                            tint = LocalContentColorAlpha(),
+                            modifier = Modifier.size(12.dp),
+                        )
+                        Text(
+                            text = "no change",
+                            fontSize = 11.sp,
+                            color = LocalContentColorAlpha(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// The card's content colour at reduced emphasis, for captions/meta on either container.
+@Composable
+private fun LocalContentColorAlpha() =
+    androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.7f)
+
+/** Format a time in milliseconds as "m:ss.t" (e.g. 134_800 ms → "2:14.8"). */
+private fun formatSegmentTime(ms: Long): String {
+    val totalTenths = ms / 100
+    val tenths = totalTenths % 10
+    val totalSeconds = totalTenths / 10
+    val seconds = totalSeconds % 60
+    val minutes = totalSeconds / 60
+    return "$minutes:${seconds.toString().padStart(2, '0')}.$tenths"
+}
+
 // ── Previews ─────────────────────────────────────────────────────────────────
 
 private val previewStatsSessions = listOf(
@@ -595,16 +810,50 @@ private val previewStatsSessions = listOf(
     ),
 )
 
+private val previewStatsSegments = listOf(
+    SegmentListItem(
+        segmentId = "seg1", name = "Ascent, west", distanceM = 2840f,
+        isFavourite = true, isGoal = false, runCount = 7,
+        bestTimeMs = 134_800L, lastTimeMs = 134_800L, previousTimeMs = 138_000L, // faster
+    ),
+    SegmentListItem(
+        segmentId = "seg2", name = "Hairpin loop", distanceM = 1120f,
+        isFavourite = false, isGoal = false, runCount = 4,
+        bestTimeMs = 47_300L, lastTimeMs = 48_900L, previousTimeMs = 47_300L, // slower
+    ),
+    SegmentListItem(
+        segmentId = "seg3", name = "Coast straight", distanceM = 5260f,
+        isFavourite = false, isGoal = false, runCount = 2,
+        bestTimeMs = 96_400L, lastTimeMs = null, previousTimeMs = null, // no trend
+    ),
+)
+
 @PreviewLightDark
 @Composable
 private fun StatsScreenPreview() {
     RaceLoggerTheme {
         StatsScreen(
             sessions = previewStatsSessions,
-            segmentCount = 14,
+            segments = previewStatsSegments,
             onOpenSummary = {},
             onOpenMonth = { _, _ -> },
             onOpenSegments = {},
+            onOpenSegment = {},
+        )
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun StatsScreenNoSegmentsPreview() {
+    RaceLoggerTheme {
+        StatsScreen(
+            sessions = previewStatsSessions,
+            segments = emptyList(),
+            onOpenSummary = {},
+            onOpenMonth = { _, _ -> },
+            onOpenSegments = {},
+            onOpenSegment = {},
         )
     }
 }

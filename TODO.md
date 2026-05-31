@@ -52,9 +52,13 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### U3 — Segment concept is hidden
-**Status:** `blocked`  
-**Blocker:** This task needs a UX product decision before implementation: *which* additional Segments entry point to add (and exactly where). The two candidates have meaningfully different scope and visual implications, so I am not choosing on the user's behalf. Unblock by picking one of the options in **Findings** below (or specifying another).
-**Area:** Navigation, `ui/StatsScreen.kt`, potentially `ui/TripsScreen.kt`
+**Status:** `done`  
+**Decision (2026-05-30):** User chose **option B — elevate segments within the Stats tab** (not a 5th nav tab), since it's unclear yet how central segments are and B is reversible. Spec updated in `design-spec.md` §4.6 + decision note §6.
+**Refined acceptance criteria:**
+- [ ] On the Stats overview, segments are surfaced as a labelled section with a top-segments carousel and a "See all" entry to the full list — not a single easy-to-miss link row.
+- [ ] Each carousel card opens that segment's detail; "See all" opens the Segment list.
+- [ ] When the user has no segments, an inline prompt explains the concept and links to the Segment list.
+**Area:** `ui/StatsScreen.kt`, `MainActivity.kt`
 
 **Problem:** Users don't discover that segments exist. The Stats → Segments link row is the only entry point; it is easy to miss.
 

@@ -93,10 +93,11 @@ private fun PreviewStatsTab() {
             SpeedAppShell(currentRoute = Routes.STATS, onTabSelected = {}) {
                 StatsScreen(
                     sessions = sampleSessions,
-                    segmentCount = 14,
+                    segments = emptyList(),
                     onOpenSummary = {},
                     onOpenMonth = { _, _ -> },
                     onOpenSegments = {},
+                    onOpenSegment = {},
                 )
             }
         }

@@ -269,7 +269,7 @@ Top bar: "Statistics" title, `date_range` trailing. Bottom nav active = **Stats*
   - Big numeral = **total distance in scope**. *e.g.* "3 412 km".
   - **6-month bar chart** = per-month distance over the trailing 6 months; current month highlighted.
 - **Records grid ×4** — bests within scope: **Top speed**, **Max lean**, **Max lateral G**, **Longest ride** (distance). *e.g.* 187 km/h / 52° / 1.24 g / 312 km.
-- **Segments link row** — count of tracked segments. *e.g.* "14 tracked segments".
+- **Segments section** — surfaces the user's tracked segments inline rather than as a single easy-to-miss link (see decision note in §5). A section header carries the **tracked-segment count** and a **"See all"** affordance to the full Segment list, followed by a **horizontal carousel of the top segments** — each card shows the segment **name**, "**distance · N runs**", **best time**, and a **trend** vs the previous attempt (down/green = faster, up/error = slower, dash = unchanged). When no segments exist yet, the carousel is replaced by an **inline teaching prompt** that explains what a segment is and links to the Segment list to create one. *e.g.* "14 SEGMENTS · See all" + cards like "Ascent, west · 2.84 km · 7 runs · 2:14.8 · 3.2s faster".
 
 **Interactions:**
 
@@ -279,8 +279,9 @@ Top bar: "Statistics" title, `date_range` trailing. Bottom nav active = **Stats*
 | 2 | Range chips | tap | Updates in place | Re-scopes all stats (year / 90 d / all) |
 | 3 | Month bars | tap | Navigates | That month's trips |
 | 4 | Record cards ×4 | tap | Navigates | Opens the ride holding each record |
-| 5 | Segments row | tap | Navigates | Opens the Segment list |
-| 6 | Bottom nav | tap | Navigates | Switches section |
+| 5 | Segments "See all" | tap | Navigates | Opens the Segment list |
+| 6 | Segment card | tap | Navigates | Opens that segment's detail |
+| 7 | Bottom nav | tap | Navigates | Switches section |
 
 ### 4.7 Stats · Segment list (`M3SegmentList`)
 
@@ -381,3 +382,7 @@ Top bar: `arrow_back` leading, "Export data" title, `help` trailing. No bottom n
 - **Example values:** every number/name in §4 (142 trips, 2.8 GB, "Col de Turini", segment names, etc.) is an illustrative *e.g.* of the described content, not a fixed string or a hard requirement.
 - **Units boundary:** store SI internally (m/s, m, m/s²); convert only at the display boundary per the Units setting (§4.9).
 - **Charts & map:** the artifacts draw static SVG; real screens need live charting and a real map provider, including the scrub-playhead interaction (§4.5 #4) that drives the map marker and chart read-outs together.
+
+## 6. Design decisions
+
+- **2026-05-30 — Segment discoverability (task U3).** The original storyboard exposed segments only through a single link row at the bottom of Stats · Overview, which tested as too easy to miss. A 5th bottom-nav destination was considered and **rejected for now**: it is unclear whether segments are central enough to justify deviating from the four-tab model (§1), and a tab is a high-commitment, hard-to-walk-back change. Decision: **elevate segments within the existing Stats tab** (§4.6 "Segments section") — turn the buried link into a labelled section with a top-segments carousel and a "See all" entry, plus a teaching prompt when empty. This is reversible: if segments later prove to be a headline feature, revisit promoting them to a top-level tab and re-render the artifact accordingly.
