@@ -205,7 +205,9 @@ private fun SensorChip(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                // U1: sensor chips are decorative (spec §4.1); onSurfaceVariant matches the
+                // label and avoids the "tappable" affordance that `primary` implies in M3.
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))

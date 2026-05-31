@@ -26,7 +26,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## UX / Discoverability
 
 ### U1 — Sensor chips look interactive but are decorative
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/RideHomeScreen.kt` → `SensorChip` composable
 
 **Problem:** The GPS / IMU / Battery chips use `MaterialTheme.colorScheme.primary` for icon tint. `primary` reads as "active / tappable" in M3. Per the design spec (§4.1), these chips are explicitly decorative.
