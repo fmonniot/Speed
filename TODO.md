@@ -197,7 +197,7 @@ Two candidate entry points were considered:
 ---
 
 ### F8 — Auto-populate trip name from location
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt` → `stopRecording()`, or `viewmodel/RaceViewModel.kt`
 
 **Problem:** New trips are named by the weekday at display time (e.g. "Monday ride"). A location-based name (e.g. start/end locality from reverse geocoding) would be more meaningful and make trips easier to identify.

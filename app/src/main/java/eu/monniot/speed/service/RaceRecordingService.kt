@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Geocoder
 import android.location.LocationManager
 import android.os.*
 import androidx.core.app.NotificationCompat
@@ -15,10 +16,12 @@ import eu.monniot.speed.data.*
 import eu.monniot.speed.fusion.DataFusion
 import eu.monniot.speed.sensor.*
 import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.*
 import kotlin.math.abs
 
@@ -359,8 +362,11 @@ class RaceRecordingService : LifecycleService() {
                         }
                     }
                 }
+                // F8: auto-name the ride from its start location. Runs in its own coroutine
+                // (off the main thread, on IO) so it never blocks finalisation below.
+                lifecycleScope.launch { autoNameSessionFromLocation(sid, points) }
             }
-            _state.update { 
+            _state.update {
                 it.copy(
                     isRecording = false,
                     sessionId = null,
@@ -372,6 +378,33 @@ class RaceRecordingService : LifecycleService() {
                 )
             }
             startForeground(NOTIFICATION_ID, createNotification("Ready to record (Battery drain high)"))
+        }
+    }
+
+    /**
+     * F8: reverse-geocode the session's first GPS fix and set [Session.name] to the locality,
+     * but only when the user hasn't named the ride (so a rename is never overwritten). If no GPS
+     * fix was captured the name is left null and the UI falls back to the weekday label.
+     */
+    private suspend fun autoNameSessionFromLocation(sessionId: String, points: List<DataPoint>) {
+        val firstFix = points.firstOrNull { it.latitude != null && it.longitude != null } ?: return
+        val lat = firstFix.latitude ?: return
+        val lon = firstFix.longitude ?: return
+
+        val locality = withContext(Dispatchers.IO) {
+            runCatching {
+                if (!Geocoder.isPresent()) return@runCatching null
+                val geocoder = Geocoder(this@RaceRecordingService, Locale.getDefault())
+                @Suppress("DEPRECATION") // async overload requires API 33; sync call is off-main here
+                val addresses = geocoder.getFromLocation(lat, lon, 1)
+                addresses?.firstOrNull()?.let { it.locality ?: it.subAdminArea ?: it.adminArea }
+            }.getOrNull()
+        }?.takeIf { it.isNotBlank() } ?: return
+
+        // Re-read so a rename made between finalisation and this lookup is not clobbered.
+        val current = repository.getSession(sessionId) ?: return
+        if (current.name.isNullOrBlank()) {
+            repository.updateSession(current.copy(name = locality))
         }
     }
 
