@@ -16,6 +16,7 @@ import eu.monniot.speed.export.ExportManager
 import eu.monniot.speed.export.ExportFmt
 import eu.monniot.speed.export.ExportOptions
 import eu.monniot.speed.data.SettingsRepository
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
 import eu.monniot.speed.service.ServiceState
@@ -53,8 +54,8 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     val units: StateFlow<Units> = settingsRepository.units
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Units.METRIC)
 
-    val darkTheme: StateFlow<Boolean> = settingsRepository.darkTheme
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val themeMode: StateFlow<ThemeMode> = settingsRepository.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.LIGHT)
 
     val gpsRateHz: StateFlow<Int> = settingsRepository.gpsRateHz
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_GPS_RATE_HZ)
@@ -101,7 +102,7 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     fun setImuRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setImuRateHz(hz) }
     fun setAutoPause(enabled: Boolean) = viewModelScope.launch { settingsRepository.setAutoPause(enabled) }
     fun setUnits(units: Units) = viewModelScope.launch { settingsRepository.setUnits(units) }
-    fun setDarkTheme(enabled: Boolean) = viewModelScope.launch { settingsRepository.setDarkTheme(enabled) }
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { settingsRepository.setThemeMode(mode) }
 
     private fun startSensors() {
         val context = getApplication<Application>().applicationContext

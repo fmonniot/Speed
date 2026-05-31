@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.ui.components.SectionLabel
 import eu.monniot.speed.ui.components.SpeedSwitch
@@ -65,7 +66,7 @@ fun SettingsScreen(
     autoPause: Boolean,
     autoStartSensors: Boolean,
     units: Units,
-    darkTheme: Boolean,
+    themeMode: ThemeMode,
     tripCount: Int,
     storageSummary: String,
     onSetGpsRate: (Int) -> Unit,
@@ -73,7 +74,7 @@ fun SettingsScreen(
     onSetAutoPause: (Boolean) -> Unit,
     onSetAutoStartSensors: (Boolean) -> Unit,
     onSetUnits: (Units) -> Unit,
-    onSetDarkTheme: (Boolean) -> Unit,
+    onSetThemeMode: (ThemeMode) -> Unit,
     onExportAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -81,6 +82,7 @@ fun SettingsScreen(
     var showGpsPicker by remember { mutableStateOf(false) }
     var showImuPicker by remember { mutableStateOf(false) }
     var showUnitsPicker by remember { mutableStateOf(false) }
+    var showThemePicker by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -164,14 +166,10 @@ fun SettingsScreen(
                 SettingsGroupDivider()
                 SettingRow(
                     icon = Icons.Rounded.DarkMode,
-                    label = "Dark theme",
-                    showChevron = false,
-                    trailing = {
-                        SpeedSwitch(
-                            checked = darkTheme,
-                            onCheckedChange = onSetDarkTheme,
-                        )
-                    },
+                    label = "Theme",
+                    trailingValue = themeModeLabel(themeMode),
+                    showChevron = true,
+                    onClick = { showThemePicker = true },
                 )
             }
 
@@ -222,6 +220,17 @@ fun SettingsScreen(
         )
     }
 
+    if (showThemePicker) {
+        SingleSelectDialog(
+            title = "Theme",
+            options = ThemeMode.entries,
+            selected = themeMode,
+            labelFor = { themeModeLabel(it) },
+            onSelect = { onSetThemeMode(it); showThemePicker = false },
+            onDismiss = { showThemePicker = false },
+        )
+    }
+
     if (showHelp) {
         AlertDialog(
             onDismissRequest = { showHelp = false },
@@ -245,6 +254,12 @@ fun SettingsScreen(
 }
 
 // ---- Private helpers ----
+
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.LIGHT -> "Light"
+    ThemeMode.DARK -> "Dark"
+    ThemeMode.SYSTEM -> "Follow system"
+}
 
 @Composable
 private fun SettingsGroupContainer(
@@ -456,7 +471,7 @@ private fun SettingsScreenPreview() {
             autoPause = false,
             autoStartSensors = false,
             units = Units.METRIC,
-            darkTheme = false,
+            themeMode = ThemeMode.SYSTEM,
             tripCount = 142,
             storageSummary = "142 trips · 2.8 GB at full 100 ms resolution. CSV, GPX or FIT.",
             onSetGpsRate = {},
@@ -464,7 +479,7 @@ private fun SettingsScreenPreview() {
             onSetAutoPause = {},
             onSetAutoStartSensors = {},
             onSetUnits = {},
-            onSetDarkTheme = {},
+            onSetThemeMode = {},
             onExportAll = {},
         )
     }

@@ -140,7 +140,7 @@ Two candidate entry points were considered:
 ---
 
 ### F4 — Dark theme: add system-follow option
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `data/SettingsRepository.kt`, `viewmodel/RaceViewModel.kt`, `ui/SettingsScreen.kt`, `MainActivity.kt`
 
 **Problem:** The dark theme setting is a `Boolean` (`DARK_THEME` `booleanPreferencesKey`). There is no way to follow the system theme.

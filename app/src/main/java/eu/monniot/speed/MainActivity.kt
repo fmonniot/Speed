@@ -9,6 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +61,7 @@ import eu.monniot.speed.ui.TripsScreen
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.Segment
 import eu.monniot.speed.data.Session
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -74,8 +76,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: RaceViewModel = viewModel()
-            // C3: theme follows the dark_theme preference, not the system setting.
-            val darkTheme by viewModel.darkTheme.collectAsState()
+            // F4: theme follows the themeMode preference. SYSTEM defers to the OS setting via
+            // isSystemInDarkTheme(), which recomposes when the OS theme changes — so "Follow
+            // system" updates live without an app restart.
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> systemDark
+            }
 
             RaceLoggerTheme(darkTheme = darkTheme) {
                 LaunchedEffect(viewModel.exportUri) {
@@ -385,7 +395,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val autoPause by viewModel.autoPause.collectAsState()
             val autoStartSensors by viewModel.autoStartSensors.collectAsState()
             val units by viewModel.units.collectAsState()
-            val darkTheme by viewModel.darkTheme.collectAsState()
+            val themeMode by viewModel.themeMode.collectAsState()
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
             val tripCount = sessions.size
             // Rough dataset estimate: ~120 bytes per captured point at full 100 ms resolution.
@@ -399,7 +409,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 autoPause = autoPause,
                 autoStartSensors = autoStartSensors,
                 units = units,
-                darkTheme = darkTheme,
+                themeMode = themeMode,
                 tripCount = tripCount,
                 storageSummary = storageSummary,
                 onSetGpsRate = viewModel::setGpsRateHz,
@@ -407,7 +417,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onSetAutoPause = viewModel::setAutoPause,
                 onSetAutoStartSensors = viewModel::setAutoStartSensors,
                 onSetUnits = viewModel::setUnits,
-                onSetDarkTheme = viewModel::setDarkTheme,
+                onSetThemeMode = viewModel::setThemeMode,
                 onExportAll = { navController.navigate(Routes.EXPORT) },
             )
         }
