@@ -390,7 +390,7 @@ class RaceRecordingService : LifecycleService() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Race Logger")
+            .setContentTitle("Speed")
             .setContentText(content)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(mainPendingIntent)

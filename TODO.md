@@ -172,7 +172,7 @@ Two candidate entry points were considered:
 ---
 
 ### F6 — Rename app references from "Race Logger" to "Speed"
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt`
 
 **Note:** `strings.xml` already has `<string name="app_name">Speed</string>`. The remaining stale reference is in the service notification: `createNotification()` hardcodes the title `"Race Logger"`.
