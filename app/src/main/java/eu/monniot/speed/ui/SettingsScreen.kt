@@ -128,6 +128,9 @@ fun SettingsScreen(
                 SettingRow(
                     icon = Icons.Rounded.PauseCircle,
                     label = "Auto-pause",
+                    // F5: clarify the effect. Threshold is AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5 m/s.
+                    supportingText = "Stationary points (below 0.5 m/s) aren't recorded; " +
+                        "distance and moving-time stats reflect riding time only.",
                     showChevron = false,
                     trailing = {
                         SpeedSwitch(
@@ -290,6 +293,7 @@ private fun SettingRow(
     label: String,
     showChevron: Boolean,
     modifier: Modifier = Modifier,
+    supportingText: String? = null,
     trailingValue: String? = null,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -316,13 +320,23 @@ private fun SettingRow(
             modifier = Modifier.size(22.dp),
         )
         Spacer(modifier = Modifier.width(14.dp))
-        Text(
-            text = label,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (supportingText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = supportingText,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
         if (trailing != null) {
             trailing()
         } else {

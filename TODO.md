@@ -158,7 +158,7 @@ Two candidate entry points were considered:
 ---
 
 ### F5 — Auto-pause: add explanatory text
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SettingsScreen.kt`
 
 **Problem:** The "Auto-pause" toggle has no supporting text. It is not obvious that it causes stationary points to be excluded from the recording, affecting distance and moving-time stats.
