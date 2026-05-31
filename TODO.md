@@ -215,7 +215,7 @@ Two candidate entry points were considered:
 ## Investigation / Research
 
 ### R1 — Samsung: battery optimisation impact on GPS accuracy
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** No code change required initially — investigation only.
 
 **Question:** On Samsung devices, setting the app's battery mode to "Optimised" (vs "Unrestricted") may throttle background sensor/location access when the screen is off. Determine:
@@ -224,3 +224,26 @@ Two candidate entry points were considered:
 3. Whether the app should prompt the user to switch to "Unrestricted" (and when/how).
 
 **Output:** A written note in this file (or a new `spec/` doc) summarising findings and a concrete recommendation. Only then should a code task be created.
+
+**Findings:**
+
+**1. Detecting the battery regime.** There is *no* public Android API that reports Samsung's three-tier label ("Unrestricted / Optimised / Restricted") verbatim — those are a Samsung UI skin over AOSP mechanisms. The closest standard signals (all already grantable on our minSdk 26 except where noted) are:
+- `PowerManager.isIgnoringBatteryOptimizations(packageName)` (API 23+) — whether the app sits on the OS battery-optimization allowlist. This is the best single proxy for "Unrestricted" (true) vs "Optimised" (false). Samsung's "Unrestricted" toggle flips this allowlist entry.
+- `ActivityManager.isBackgroundRestricted()` (API 28+) — true when the user has explicitly *Restricted* the app (the most aggressive Samsung tier).
+- `UsageStatsManager.getAppStandbyBucket()` (API 28+) — current App Standby bucket (`ACTIVE` … `RARE`, plus `RESTRICTED` on API 30+); a finer-grained proxy for how hard background work will be throttled.
+- `PowerManager.isPowerSaveMode()` — global battery saver, orthogonal to the per-app tier.
+
+So we can reliably distinguish "on the allowlist" from "not", and detect the hard-Restricted case, but we cannot read the exact Samsung wording.
+
+**2. Is GPS throttled while the screen is off?** It depends on the app state, not just the battery tier:
+- **During active recording** the app runs a foreground service typed `location` and holds a `PARTIAL_WAKE_LOCK` (see `RaceRecordingService.startRecording`). On stock Android, a foreground `location` service is exempt from Doze location throttling, so update frequency should hold up screen-off. The real-world risk is OEM-specific: Samsung "Optimised" mode is known (cf. dontkillmyapp.com) to kill or suspend foreground services and their wake locks screen-off more aggressively than AOSP, which would *stop* updates rather than merely slow them.
+- **During the F3 pre-warm window** (sensors started by auto-start but the user hasn't tapped Record yet) the wake lock is not held. This is the most exposed case: under "Optimised", the OS/OEM may suspend the service when the screen turns off, so the pre-warmed fix can be lost exactly when it was meant to help.
+
+In short: "Optimised" rarely *reduces the Hz* of an active foreground recording on stock Android, but on Samsung it can *suspend* recording or pre-warm entirely screen-off. The user-visible symptom is GPS gaps, not a lower steady rate.
+
+**3. Should we prompt, and how?** Yes, but conservatively:
+- Gate any prompt on `isIgnoringBatteryOptimizations() == false` (and optionally escalate copy when `isBackgroundRestricted()` is true). Never nag: show a single dismissible, "don't show again" educational card, ideally surfaced *contextually* — e.g. after a recording whose track shows GPS gaps — rather than on cold launch.
+- For the action, prefer the Play-policy-safe `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` deep link (opens the allowlist list) over the direct `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog, which Google Play restricts to apps that are non-functional without the exemption. A long-ride GPS logger has a defensible claim to the direct request, but the settings deep link avoids policy review risk.
+- Samsung-specific "Unrestricted" / "Sleeping apps" screens are not reliably reachable by a stable public intent across One UI versions, so the prompt should explain in words ("set Speed to *Unrestricted* in battery settings") and fall back to the generic battery-optimization settings deep link.
+
+**Recommendation:** Create a follow-up code task to add a one-time, dismissible "allow unrestricted background battery" prompt gated on `PowerManager.isIgnoringBatteryOptimizations()` returning false, deep-linking to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`; do **not** attempt to read Samsung's exact tier (no API exists), and keep relying on the existing foreground-service + wake lock for the active-recording window.
