@@ -10,7 +10,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## Bugs
 
 ### B1 — Summary screen shows zero stats until Trace is opened
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SummaryScreen.kt`, `service/RaceRecordingService.kt`
 
 **Problem:** After stopping a recording and navigating to the Summary screen, all stat cards (distance, avg speed, max lateral G, etc.) show `—` or zero. Opening the Trace screen and going back fixes it.
@@ -26,7 +26,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## UX / Discoverability
 
 ### U1 — Sensor chips look interactive but are decorative
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/RideHomeScreen.kt` → `SensorChip` composable
 
 **Problem:** The GPS / IMU / Battery chips use `MaterialTheme.colorScheme.primary` for icon tint. `primary` reads as "active / tappable" in M3. Per the design spec (§4.1), these chips are explicitly decorative.
@@ -40,7 +40,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### U2 — Top-speed hero on Summary screen has no visual tap affordance
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SummaryScreen.kt`
 
 **Problem:** The top-speed `primaryContainer` card navigates to the Trace on tap (per spec §4.3 #3 and the wired `onOpenTrace` callback), but there is no visual cue that it is interactive — no `chevron_right`, no ripple hint, nothing. Users don't discover it.
@@ -52,8 +52,13 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### U3 — Segment concept is hidden
-**Status:** `todo`  
-**Area:** Navigation, `ui/StatsScreen.kt`, potentially `ui/TripsScreen.kt`
+**Status:** `done`  
+**Decision (2026-05-30):** User chose **option B — elevate segments within the Stats tab** (not a 5th nav tab), since it's unclear yet how central segments are and B is reversible. Spec updated in `design-spec.md` §4.6 + decision note §6.
+**Refined acceptance criteria:**
+- [ ] On the Stats overview, segments are surfaced as a labelled section with a top-segments carousel and a "See all" entry to the full list — not a single easy-to-miss link row.
+- [ ] Each carousel card opens that segment's detail; "See all" opens the Segment list.
+- [ ] When the user has no segments, an inline prompt explains the concept and links to the Segment list.
+**Area:** `ui/StatsScreen.kt`, `MainActivity.kt`
 
 **Problem:** Users don't discover that segments exist. The Stats → Segments link row is the only entry point; it is easy to miss.
 
@@ -64,10 +69,22 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 **Acceptance criteria (to be refined after UX investigation):**
 - [ ] At least one additional, prominent path to the Segments list exists beyond the Stats overview.
 
+**Findings:**
+
+Current state: the only route to the Segments list (`Routes.SEGMENTS`) is the bordered link row at the bottom of Stats · Overview (spec §4.6 #5). The Summary screen has a *segment-PB* row, but it routes to `Routes.SEGMENTS` only conceptually filtered to "this ride's segments" — and it only reads as meaningful once a user already has segments defined. So for a user who has never created a segment, there is effectively no discoverable entry to the feature.
+
+Two candidate entry points were considered:
+
+1. **Shortcut/destination on the Trips screen.** Trips is the most-visited browsing surface. Options range from a non-scoping shortcut chip in the filter-chip row (cheap, but mixes a *navigation* affordance into a row whose other chips are *update-in-place* filters — inconsistent with the §4.4 interaction contract) to a top-bar trailing action. A top-bar action is cleaner but the Trips bar already carries `search` (§4.4); adding a second trailing icon for a secondary concept is questionable.
+
+2. **Contextual prompt on the Summary screen** ("Define a segment from this ride?"). This is the strongest *teaching* moment — the user has just finished a ride and has a concrete track to turn into a segment. It also dovetails with the existing segment-PB row. Cost: it touches the segment-creation flow (the §4.7 "Add" path: draw on map / pick from a ride), which is a larger change than a pure navigation link, and the "pick from a ride" creation path must exist for the prompt to lead anywhere useful.
+
+**Recommendation:** Add the contextual prompt on the Summary screen (option 2) — it is the highest-intent, most teachable surface and reinforces rather than clutters the existing interaction model — **but** confirm with the user first, because it depends on the segment-from-ride creation flow being in scope; if only a lightweight discoverability nudge is wanted, fall back to a single Segments destination reachable from the Stats tab area rather than overloading the Trips filter row.
+
 ---
 
 ### U4 — Trip list rows don't show departure time
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/TripsScreen.kt`
 
 **Problem:** The date format is `SimpleDateFormat("d MMM", ...)`. For users who record multiple trips per day, there is no way to tell them apart at a glance.
@@ -83,7 +100,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## Features
 
 ### F1 — Delete trips from the UI
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/TripsScreen.kt` and/or `ui/SummaryScreen.kt`
 
 **Note:** The backend is already complete. `RaceViewModel.deleteSession()` calls `RaceRepository.deleteSession()` which calls `dao.deleteFullSession()` and removes the raw trace file from external storage. This is purely a UI task.
@@ -97,7 +114,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F2 — Add a Stop action to the foreground notification
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt` → `createNotification()`
 
 **Problem:** When the app is backgrounded and the screen is off, the only way to stop recording or kill the service is to re-open the app. The notification has no interactive action.
@@ -112,7 +129,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F3 — Pre-warm GPS fix before the user taps Record
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt`, `ui/RideHomeScreen.kt`, `viewmodel/RaceViewModel.kt`
 
 **Problem:** GPS cold-start takes 15–60 seconds. If a user opens the app and immediately taps Record, the first portion of the ride has no GPS fix.
@@ -127,7 +144,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F4 — Dark theme: add system-follow option
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `data/SettingsRepository.kt`, `viewmodel/RaceViewModel.kt`, `ui/SettingsScreen.kt`, `MainActivity.kt`
 
 **Problem:** The dark theme setting is a `Boolean` (`DARK_THEME` `booleanPreferencesKey`). There is no way to follow the system theme.
@@ -145,7 +162,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F5 — Auto-pause: add explanatory text
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `ui/SettingsScreen.kt`
 
 **Problem:** The "Auto-pause" toggle has no supporting text. It is not obvious that it causes stationary points to be excluded from the recording, affecting distance and moving-time stats.
@@ -159,7 +176,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F6 — Rename app references from "Race Logger" to "Speed"
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt`
 
 **Note:** `strings.xml` already has `<string name="app_name">Speed</string>`. The remaining stale reference is in the service notification: `createNotification()` hardcodes the title `"Race Logger"`.
@@ -171,7 +188,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F7 — Debug build: separate package and display name
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `app/build.gradle.kts` → `buildTypes { debug { … } }`
 
 **Change:** Add `applicationIdSuffix ".debug"` and `versionNameSuffix " (debug)"` to the debug build type so that debug and release builds can coexist on the same device.
@@ -184,7 +201,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ---
 
 ### F8 — Auto-populate trip name from location
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** `service/RaceRecordingService.kt` → `stopRecording()`, or `viewmodel/RaceViewModel.kt`
 
 **Problem:** New trips are named by the weekday at display time (e.g. "Monday ride"). A location-based name (e.g. start/end locality from reverse geocoding) would be more meaningful and make trips easier to identify.
@@ -202,7 +219,7 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 ## Investigation / Research
 
 ### R1 — Samsung: battery optimisation impact on GPS accuracy
-**Status:** `todo`  
+**Status:** `done`  
 **Area:** No code change required initially — investigation only.
 
 **Question:** On Samsung devices, setting the app's battery mode to "Optimised" (vs "Unrestricted") may throttle background sensor/location access when the screen is off. Determine:
@@ -211,3 +228,26 @@ Items are grouped by area. Each task states **what** to do, **where** in the cod
 3. Whether the app should prompt the user to switch to "Unrestricted" (and when/how).
 
 **Output:** A written note in this file (or a new `spec/` doc) summarising findings and a concrete recommendation. Only then should a code task be created.
+
+**Findings:**
+
+**1. Detecting the battery regime.** There is *no* public Android API that reports Samsung's three-tier label ("Unrestricted / Optimised / Restricted") verbatim — those are a Samsung UI skin over AOSP mechanisms. The closest standard signals (all already grantable on our minSdk 26 except where noted) are:
+- `PowerManager.isIgnoringBatteryOptimizations(packageName)` (API 23+) — whether the app sits on the OS battery-optimization allowlist. This is the best single proxy for "Unrestricted" (true) vs "Optimised" (false). Samsung's "Unrestricted" toggle flips this allowlist entry.
+- `ActivityManager.isBackgroundRestricted()` (API 28+) — true when the user has explicitly *Restricted* the app (the most aggressive Samsung tier).
+- `UsageStatsManager.getAppStandbyBucket()` (API 28+) — current App Standby bucket (`ACTIVE` … `RARE`, plus `RESTRICTED` on API 30+); a finer-grained proxy for how hard background work will be throttled.
+- `PowerManager.isPowerSaveMode()` — global battery saver, orthogonal to the per-app tier.
+
+So we can reliably distinguish "on the allowlist" from "not", and detect the hard-Restricted case, but we cannot read the exact Samsung wording.
+
+**2. Is GPS throttled while the screen is off?** It depends on the app state, not just the battery tier:
+- **During active recording** the app runs a foreground service typed `location` and holds a `PARTIAL_WAKE_LOCK` (see `RaceRecordingService.startRecording`). On stock Android, a foreground `location` service is exempt from Doze location throttling, so update frequency should hold up screen-off. The real-world risk is OEM-specific: Samsung "Optimised" mode is known (cf. dontkillmyapp.com) to kill or suspend foreground services and their wake locks screen-off more aggressively than AOSP, which would *stop* updates rather than merely slow them.
+- **During the F3 pre-warm window** (sensors started by auto-start but the user hasn't tapped Record yet) the wake lock is not held. This is the most exposed case: under "Optimised", the OS/OEM may suspend the service when the screen turns off, so the pre-warmed fix can be lost exactly when it was meant to help.
+
+In short: "Optimised" rarely *reduces the Hz* of an active foreground recording on stock Android, but on Samsung it can *suspend* recording or pre-warm entirely screen-off. The user-visible symptom is GPS gaps, not a lower steady rate.
+
+**3. Should we prompt, and how?** Yes, but conservatively:
+- Gate any prompt on `isIgnoringBatteryOptimizations() == false` (and optionally escalate copy when `isBackgroundRestricted()` is true). Never nag: show a single dismissible, "don't show again" educational card, ideally surfaced *contextually* — e.g. after a recording whose track shows GPS gaps — rather than on cold launch.
+- For the action, prefer the Play-policy-safe `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` deep link (opens the allowlist list) over the direct `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog, which Google Play restricts to apps that are non-functional without the exemption. A long-ride GPS logger has a defensible claim to the direct request, but the settings deep link avoids policy review risk.
+- Samsung-specific "Unrestricted" / "Sleeping apps" screens are not reliably reachable by a stable public intent across One UI versions, so the prompt should explain in words ("set Speed to *Unrestricted* in battery settings") and fall back to the generic battery-optimization settings deep link.
+
+**Recommendation:** Create a follow-up code task to add a one-time, dismissible "allow unrestricted background battery" prompt gated on `PowerManager.isIgnoringBatteryOptimizations()` returning false, deep-linking to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`; do **not** attempt to read Samsung's exact tier (no API exists), and keep relying on the existing foreground-service + wake lock for the active-recording window.

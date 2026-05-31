@@ -238,6 +238,32 @@ fun SummaryScreen(
                             modifier = Modifier.padding(bottom = 10.dp),
                         )
                     }
+
+                    // U2: explicit tap affordance — the whole card navigates to the Trace at the
+                    // peak-speed moment (spec §4.3 #3), but had no visual cue. A trailing
+                    // "View trace" hint + chevron_right signals it is interactive.
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "View trace",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight(600),
+                                fontSize = 12.sp,
+                            ),
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f),
+                        )
+                    }
                 }
             }
 

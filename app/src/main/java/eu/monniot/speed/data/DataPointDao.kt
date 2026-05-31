@@ -23,6 +23,9 @@ interface DataPointDao {
     @Query("SELECT * FROM sessions WHERE sessionId = :sessionId")
     suspend fun getSession(sessionId: String): Session?
 
+    @Query("SELECT * FROM sessions WHERE sessionId = :sessionId")
+    fun observeSession(sessionId: String): Flow<Session?>
+
     @Query("DELETE FROM sessions WHERE sessionId = :sessionId")
     suspend fun deleteSession(sessionId: String)
 

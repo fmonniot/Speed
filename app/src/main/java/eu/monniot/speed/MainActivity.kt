@@ -1,14 +1,19 @@
 package eu.monniot.speed
 
 import android.Manifest
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +29,7 @@ import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -32,7 +38,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -60,6 +70,7 @@ import eu.monniot.speed.ui.TripsScreen
 import eu.monniot.speed.data.DataPoint
 import eu.monniot.speed.data.Segment
 import eu.monniot.speed.data.Session
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.ui.components.SpeedBottomNav
 import eu.monniot.speed.ui.components.SpeedNavItem
 import eu.monniot.speed.ui.theme.RaceLoggerTheme
@@ -74,8 +85,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val viewModel: RaceViewModel = viewModel()
-            // C3: theme follows the dark_theme preference, not the system setting.
-            val darkTheme by viewModel.darkTheme.collectAsState()
+            // F4: theme follows the themeMode preference. SYSTEM defers to the OS setting via
+            // isSystemInDarkTheme(), which recomposes when the OS theme changes — so "Follow
+            // system" updates live without an app restart.
+            val themeMode by viewModel.themeMode.collectAsState()
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> systemDark
+            }
 
             RaceLoggerTheme(darkTheme = darkTheme) {
                 LaunchedEffect(viewModel.exportUri) {
@@ -196,6 +215,25 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val serviceState by viewModel.serviceState.collectAsState()
             val gpsRateHz by viewModel.gpsRateHz.collectAsState()
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+
+            // R1: gate the one-time battery prompt on the OS allowlist state. Re-checked on
+            // resume so it disappears once the user returns from settings having allowed it.
+            val context = LocalContext.current
+            val batteryPromptDismissed by viewModel.batteryPromptDismissed.collectAsState()
+            var ignoringOptimizations by remember { mutableStateOf(isIgnoringBatteryOptimizations(context)) }
+            var backgroundRestricted by remember { mutableStateOf(isBackgroundRestricted(context)) }
+            val lifecycleOwner = LocalLifecycleOwner.current
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        ignoringOptimizations = isIgnoringBatteryOptimizations(context)
+                        backgroundRestricted = isBackgroundRestricted(context)
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
             RideHomeScreen(
                 serviceState = serviceState,
                 gpsRateHz = gpsRateHz,
@@ -209,6 +247,10 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenTrips = { navController.navigate(Routes.tripsThisWeek()) },
                 onOpenStats = { navController.navigate(Routes.STATS) },
+                showBatteryPrompt = !batteryPromptDismissed && !ignoringOptimizations,
+                batteryPromptRestricted = backgroundRestricted,
+                onOpenBatterySettings = { openBatteryOptimizationSettings(context) },
+                onDismissBatteryPrompt = { viewModel.dismissBatteryPrompt() },
             )
         }
         composable(Routes.LIVE) {
@@ -231,8 +273,13 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
         composable(Routes.SUMMARY) { backStackEntry ->
             val sessionId = backStackEntry.arguments?.getString("sessionId") ?: ""
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
-            var session by remember(sessionId) { mutableStateOf<Session?>(null) }
-            LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }
+            // B1: observe the session reactively instead of a one-shot read. stopRecording()
+            // finalises the session (writes aggregate columns + endTimeMs) on a background
+            // coroutine that races navigation here. Gating on endTimeMs != null keeps the
+            // loading state until finalisation completes, so we never flash zero aggregates.
+            val loadedSession by remember(sessionId) { viewModel.observeSession(sessionId) }
+                .collectAsState(initial = null)
+            val session = loadedSession?.takeIf { it.endTimeMs != null }
             // NEW PB when this session's top speed beats every other recorded session. Require the
             // sessions list to be loaded first, otherwise all{} over an empty list flashes a PB.
             val topSpeed = session?.maxSpeedMs
@@ -254,10 +301,8 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 onBack = { navController.popBackStack() },
                 onShare = { viewModel.exportSession(sessionId) },
                 onRename = { newName ->
-                    session?.let { s ->
-                        viewModel.renameSession(s, newName)
-                        session = s.copy(name = newName) // reflect immediately
-                    }
+                    // Persist; the reactive observeSession flow re-emits with the new name.
+                    session?.let { s -> viewModel.renameSession(s, newName) }
                 },
                 onOpenTrace = { navController.navigate(Routes.traceFocusPeak(sessionId)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
@@ -288,6 +333,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 initialFilter = filter,
                 dateWindow = window,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
+                onDeleteSession = { id -> viewModel.deleteSession(id) },
             )
         }
         composable(
@@ -325,10 +371,11 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val segments by viewModel.segmentListItems.collectAsState()
             StatsScreen(
                 sessions = sessions,
-                segmentCount = segments.size,
+                segments = segments,
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenMonth = { from, to -> navController.navigate(Routes.tripsMonth(from, to)) },
                 onOpenSegments = { navController.navigate(Routes.SEGMENTS) },
+                onOpenSegment = { id -> navController.navigate(Routes.segment(id)) },
             )
         }
         composable(Routes.SEGMENTS) {
@@ -379,8 +426,9 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
             val gpsRateHz by viewModel.gpsRateHz.collectAsState()
             val imuRateHz by viewModel.imuRateHz.collectAsState()
             val autoPause by viewModel.autoPause.collectAsState()
+            val autoStartSensors by viewModel.autoStartSensors.collectAsState()
             val units by viewModel.units.collectAsState()
-            val darkTheme by viewModel.darkTheme.collectAsState()
+            val themeMode by viewModel.themeMode.collectAsState()
             val sessions by viewModel.sessions.collectAsState(initial = emptyList())
             val tripCount = sessions.size
             // Rough dataset estimate: ~120 bytes per captured point at full 100 ms resolution.
@@ -392,15 +440,17 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                 gpsRateHz = gpsRateHz,
                 imuRateHz = imuRateHz,
                 autoPause = autoPause,
+                autoStartSensors = autoStartSensors,
                 units = units,
-                darkTheme = darkTheme,
+                themeMode = themeMode,
                 tripCount = tripCount,
                 storageSummary = storageSummary,
                 onSetGpsRate = viewModel::setGpsRateHz,
                 onSetImuRate = viewModel::setImuRateHz,
                 onSetAutoPause = viewModel::setAutoPause,
+                onSetAutoStartSensors = viewModel::setAutoStartSensors,
                 onSetUnits = viewModel::setUnits,
-                onSetDarkTheme = viewModel::setDarkTheme,
+                onSetThemeMode = viewModel::setThemeMode,
                 onExportAll = { navController.navigate(Routes.EXPORT) },
             )
         }
@@ -460,6 +510,37 @@ fun SpeedAppShell(
                 modifier = Modifier.navigationBarsPadding(),
             )
         }
+    }
+}
+
+// R1: true when Speed is on the OS battery-optimisation allowlist ("Unrestricted").
+// API 23+, so always available on our minSdk 26.
+private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
+    val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return true
+    return pm.isIgnoringBatteryOptimizations(context.packageName)
+}
+
+// R1: true when the user has explicitly Restricted background activity (API 28+);
+// used only to escalate the prompt copy. Returns false on older APIs.
+private fun isBackgroundRestricted(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return false
+    return am.isBackgroundRestricted
+}
+
+// R1: open the Play-policy-safe battery-optimisation allowlist screen. Falls back to the
+// app's details settings if the action is unavailable on this device.
+private fun openBatteryOptimizationSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+    try {
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.fromParts("package", context.packageName, null),
+            ),
+        )
     }
 }
 

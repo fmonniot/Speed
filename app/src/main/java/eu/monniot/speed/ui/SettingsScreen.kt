@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.PauseCircle
+import androidx.compose.material.icons.rounded.SatelliteAlt
 import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Straighten
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.ui.components.SectionLabel
 import eu.monniot.speed.ui.components.SpeedSwitch
@@ -62,15 +64,17 @@ fun SettingsScreen(
     gpsRateHz: Int,
     imuRateHz: Int,
     autoPause: Boolean,
+    autoStartSensors: Boolean,
     units: Units,
-    darkTheme: Boolean,
+    themeMode: ThemeMode,
     tripCount: Int,
     storageSummary: String,
     onSetGpsRate: (Int) -> Unit,
     onSetImuRate: (Int) -> Unit,
     onSetAutoPause: (Boolean) -> Unit,
+    onSetAutoStartSensors: (Boolean) -> Unit,
     onSetUnits: (Units) -> Unit,
-    onSetDarkTheme: (Boolean) -> Unit,
+    onSetThemeMode: (ThemeMode) -> Unit,
     onExportAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -78,6 +82,7 @@ fun SettingsScreen(
     var showGpsPicker by remember { mutableStateOf(false) }
     var showImuPicker by remember { mutableStateOf(false) }
     var showUnitsPicker by remember { mutableStateOf(false) }
+    var showThemePicker by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -123,11 +128,28 @@ fun SettingsScreen(
                 SettingRow(
                     icon = Icons.Rounded.PauseCircle,
                     label = "Auto-pause",
+                    // F5: clarify the effect. Threshold is AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5 m/s.
+                    supportingText = "Stationary points (below 0.5 m/s) aren't recorded; " +
+                        "distance and moving-time stats reflect riding time only.",
                     showChevron = false,
                     trailing = {
                         SpeedSwitch(
                             checked = autoPause,
                             onCheckedChange = onSetAutoPause,
+                        )
+                    },
+                )
+                SettingsGroupDivider()
+                // F3: surface the auto-start preference so GPS/IMU can pre-warm on launch,
+                // avoiding a cold GPS fix at the start of a ride.
+                SettingRow(
+                    icon = Icons.Rounded.SatelliteAlt,
+                    label = "Auto-start sensors on launch",
+                    showChevron = false,
+                    trailing = {
+                        SpeedSwitch(
+                            checked = autoStartSensors,
+                            onCheckedChange = onSetAutoStartSensors,
                         )
                     },
                 )
@@ -147,14 +169,10 @@ fun SettingsScreen(
                 SettingsGroupDivider()
                 SettingRow(
                     icon = Icons.Rounded.DarkMode,
-                    label = "Dark theme",
-                    showChevron = false,
-                    trailing = {
-                        SpeedSwitch(
-                            checked = darkTheme,
-                            onCheckedChange = onSetDarkTheme,
-                        )
-                    },
+                    label = "Theme",
+                    trailingValue = themeModeLabel(themeMode),
+                    showChevron = true,
+                    onClick = { showThemePicker = true },
                 )
             }
 
@@ -205,6 +223,17 @@ fun SettingsScreen(
         )
     }
 
+    if (showThemePicker) {
+        SingleSelectDialog(
+            title = "Theme",
+            options = ThemeMode.entries,
+            selected = themeMode,
+            labelFor = { themeModeLabel(it) },
+            onSelect = { onSetThemeMode(it); showThemePicker = false },
+            onDismiss = { showThemePicker = false },
+        )
+    }
+
     if (showHelp) {
         AlertDialog(
             onDismissRequest = { showHelp = false },
@@ -228,6 +257,12 @@ fun SettingsScreen(
 }
 
 // ---- Private helpers ----
+
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.LIGHT -> "Light"
+    ThemeMode.DARK -> "Dark"
+    ThemeMode.SYSTEM -> "Follow system"
+}
 
 @Composable
 private fun SettingsGroupContainer(
@@ -258,6 +293,7 @@ private fun SettingRow(
     label: String,
     showChevron: Boolean,
     modifier: Modifier = Modifier,
+    supportingText: String? = null,
     trailingValue: String? = null,
     trailing: @Composable (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
@@ -284,13 +320,23 @@ private fun SettingRow(
             modifier = Modifier.size(22.dp),
         )
         Spacer(modifier = Modifier.width(14.dp))
-        Text(
-            text = label,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (supportingText != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = supportingText,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
         if (trailing != null) {
             trailing()
         } else {
@@ -437,15 +483,17 @@ private fun SettingsScreenPreview() {
             gpsRateHz = 10,
             imuRateHz = 100,
             autoPause = false,
+            autoStartSensors = false,
             units = Units.METRIC,
-            darkTheme = false,
+            themeMode = ThemeMode.SYSTEM,
             tripCount = 142,
             storageSummary = "142 trips · 2.8 GB at full 100 ms resolution. CSV, GPX or FIT.",
             onSetGpsRate = {},
             onSetImuRate = {},
             onSetAutoPause = {},
+            onSetAutoStartSensors = {},
             onSetUnits = {},
-            onSetDarkTheme = {},
+            onSetThemeMode = {},
             onExportAll = {},
         )
     }

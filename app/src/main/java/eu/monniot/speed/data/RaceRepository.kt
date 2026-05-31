@@ -43,6 +43,8 @@ class RaceRepository(
 
     suspend fun getSession(sessionId: String) = dao.getSession(sessionId)
 
+    fun observeSession(sessionId: String): Flow<Session?> = dao.observeSession(sessionId)
+
     suspend fun deleteSession(sessionId: String) = dao.deleteFullSession(sessionId)
 
     suspend fun getPointsForSession(sessionId: String) = dao.getPointsForSession(sessionId)

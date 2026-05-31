@@ -23,7 +23,12 @@ class SettingsRepository(private val context: Context) {
         val IMU_RATE_HZ = intPreferencesKey("imu_rate_hz")
         val AUTO_PAUSE = booleanPreferencesKey("auto_pause")
         val UNITS = stringPreferencesKey("units")
+        // Legacy boolean key (pre-F4). Still read for migration; no longer written.
         val DARK_THEME = booleanPreferencesKey("dark_theme")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
+        // R1: set once the user dismisses the "allow unrestricted background battery" prompt,
+        // so it is never shown again. Absent/false => eligible to show.
+        val BATTERY_PROMPT_DISMISSED = booleanPreferencesKey("battery_prompt_dismissed")
 
         const val DEFAULT_GPS_RATE_HZ = 10
         const val DEFAULT_IMU_RATE_HZ = 100
@@ -51,8 +56,16 @@ class SettingsRepository(private val context: Context) {
     val units: Flow<Units> = context.dataStore.data
         .map { preferences -> Units.fromStorage(preferences[UNITS]) }
 
-    val darkTheme: Flow<Boolean> = context.dataStore.data
-        .map { preferences -> preferences[DARK_THEME] ?: false }
+    // F4: tri-state theme. New THEME_MODE key wins; if absent, migrate the legacy DARK_THEME
+    // boolean (true -> DARK, false/absent -> LIGHT) so existing users keep their scheme.
+    val themeMode: Flow<ThemeMode> = context.dataStore.data
+        .map { preferences ->
+            preferences[THEME_MODE]?.let { ThemeMode.fromStorage(it) }
+                ?: if (preferences[DARK_THEME] == true) ThemeMode.DARK else ThemeMode.LIGHT
+        }
+
+    val batteryPromptDismissed: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[BATTERY_PROMPT_DISMISSED] ?: false }
 
     suspend fun setAutoStartSensors(enabled: Boolean) {
         context.dataStore.edit { preferences ->
@@ -82,7 +95,11 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { preferences -> preferences[UNITS] = units.name }
     }
 
-    suspend fun setDarkTheme(enabled: Boolean) {
-        context.dataStore.edit { preferences -> preferences[DARK_THEME] = enabled }
+    suspend fun setThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { preferences -> preferences[THEME_MODE] = mode.name }
+    }
+
+    suspend fun setBatteryPromptDismissed(dismissed: Boolean) {
+        context.dataStore.edit { preferences -> preferences[BATTERY_PROMPT_DISMISSED] = dismissed }
     }
 }

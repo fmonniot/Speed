@@ -1,7 +1,9 @@
 package eu.monniot.speed.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +34,7 @@ import eu.monniot.speed.ui.theme.SpeedDimens
 
 // List row per spec §2.5 and component-reference §ListRow.
 // Leading 44 dp round icon chip; title + optional meta; trailing value or chevron.
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ListRow(
     title: String,
@@ -44,13 +47,19 @@ fun ListRow(
     trailingUnit: String? = null,
     showChevron: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
-    val rowModifier = if (onClick != null) {
-        modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    } else {
-        modifier.fillMaxWidth()
+    val rowModifier = when {
+        // F1: long-press opens the per-trip delete confirmation in the Trips list.
+        onClick != null && onLongClick != null ->
+            modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+        onClick != null ->
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+        else -> modifier.fillMaxWidth()
     }
 
     Row(

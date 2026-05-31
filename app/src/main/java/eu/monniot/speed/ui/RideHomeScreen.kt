@@ -17,7 +17,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.BatteryAlert
 import androidx.compose.material.icons.rounded.BatteryFull
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DirectionsBike
 import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.GpsFixed
@@ -25,10 +27,12 @@ import androidx.compose.material.icons.rounded.Sensors
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.TwoWheeler
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -67,6 +71,12 @@ fun RideHomeScreen(
     onOpenTrips: () -> Unit,
     onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
+    // R1: one-time, dismissible battery-optimisation prompt. Caller decides visibility
+    // (app not on allowlist AND not already dismissed) and supplies the actions.
+    showBatteryPrompt: Boolean = false,
+    batteryPromptRestricted: Boolean = false,
+    onOpenBatterySettings: () -> Unit = {},
+    onDismissBatteryPrompt: () -> Unit = {},
 ) {
     val units = LocalUnits.current
 
@@ -130,6 +140,16 @@ fun RideHomeScreen(
                 SensorChip(
                     icon = Icons.Rounded.BatteryFull,
                     label = serviceState.batteryPercent?.let { "$it%" } ?: "—%",
+                )
+            }
+
+            // R1: one-time battery-optimisation prompt (only when not allowlisted).
+            if (showBatteryPrompt) {
+                Spacer(modifier = Modifier.height(16.dp))
+                BatteryOptimizationCard(
+                    restricted = batteryPromptRestricted,
+                    onOpenSettings = onOpenBatterySettings,
+                    onDismiss = onDismissBatteryPrompt,
                 )
             }
 
@@ -205,7 +225,9 @@ private fun SensorChip(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
+                // U1: sensor chips are decorative (spec §4.1); onSurfaceVariant matches the
+                // label and avoids the "tappable" affordance that `primary` implies in M3.
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -215,6 +237,81 @@ private fun SensorChip(
                 fontWeight = FontWeight(500),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+// R1: dismissible card prompting the user to set Speed to "Unrestricted" battery use so
+// screen-off GPS recording is not throttled/suspended (notably on Samsung "Optimised" mode).
+@Composable
+private fun BatteryOptimizationCard(
+    restricted: Boolean,
+    onOpenSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(SpeedDimens.radiusMediumTonal),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.BatteryAlert,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Keep recording with the screen off",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight(600),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Dismiss",
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+
+            val body = if (restricted) {
+                "Speed's background activity is Restricted, so GPS logging can stop when the " +
+                    "screen turns off. In battery settings, set Speed to Unrestricted for reliable rides."
+            } else {
+                "Your system may throttle GPS when the screen is off. In battery settings, set " +
+                    "Speed to Unrestricted so long rides record without gaps."
+            }
+            Text(
+                text = body,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f),
+                modifier = Modifier.padding(top = 8.dp, start = 30.dp),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Not now")
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                TextButton(onClick = onOpenSettings) {
+                    Text("Open settings")
+                }
+            }
         }
     }
 }
@@ -367,6 +464,35 @@ private fun RideHomeScreenPreview() {
                 onOpenSummary = {},
                 onOpenTrips = {},
                 onOpenStats = {},
+            )
+        }
+    }
+}
+
+@PreviewLightDark
+@Composable
+private fun RideHomeScreenBatteryPromptPreview() {
+    val fakeServiceState = ServiceState(
+        isSensorsEnabled = true,
+        currentAccuracyM = 3.5f,
+        satellites = SatelliteInfo(usedInFix = 9, visible = 14),
+        pointCount = 0,
+        batteryPercent = 71,
+    )
+
+    RaceLoggerTheme {
+        CompositionLocalProvider(LocalUnits provides Units.METRIC) {
+            RideHomeScreen(
+                serviceState = fakeServiceState,
+                gpsRateHz = 10,
+                lastRide = null,
+                thisWeekCount = 2,
+                lifetimeDistanceM = 120_000f,
+                onRecord = {},
+                onOpenSummary = {},
+                onOpenTrips = {},
+                onOpenStats = {},
+                showBatteryPrompt = true,
             )
         }
     }

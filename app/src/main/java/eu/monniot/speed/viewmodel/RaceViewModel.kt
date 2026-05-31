@@ -16,6 +16,7 @@ import eu.monniot.speed.export.ExportManager
 import eu.monniot.speed.export.ExportFmt
 import eu.monniot.speed.export.ExportOptions
 import eu.monniot.speed.data.SettingsRepository
+import eu.monniot.speed.data.ThemeMode
 import eu.monniot.speed.data.Units
 import eu.monniot.speed.service.RaceRecordingService
 import eu.monniot.speed.service.ServiceState
@@ -53,8 +54,8 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     val units: StateFlow<Units> = settingsRepository.units
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), Units.METRIC)
 
-    val darkTheme: StateFlow<Boolean> = settingsRepository.darkTheme
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val themeMode: StateFlow<ThemeMode> = settingsRepository.themeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.LIGHT)
 
     val gpsRateHz: StateFlow<Int> = settingsRepository.gpsRateHz
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_GPS_RATE_HZ)
@@ -64,6 +65,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
 
     val autoPause: StateFlow<Boolean> = settingsRepository.autoPause
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // R1: true once the user has dismissed the one-time unrestricted-background battery prompt.
+    val batteryPromptDismissed: StateFlow<Boolean> = settingsRepository.batteryPromptDismissed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     private val _exportUri = MutableSharedFlow<Uri>()
     val exportUri: SharedFlow<Uri> = _exportUri
@@ -101,7 +106,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     fun setImuRateHz(hz: Int) = viewModelScope.launch { settingsRepository.setImuRateHz(hz) }
     fun setAutoPause(enabled: Boolean) = viewModelScope.launch { settingsRepository.setAutoPause(enabled) }
     fun setUnits(units: Units) = viewModelScope.launch { settingsRepository.setUnits(units) }
-    fun setDarkTheme(enabled: Boolean) = viewModelScope.launch { settingsRepository.setDarkTheme(enabled) }
+    fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { settingsRepository.setThemeMode(mode) }
+
+    // R1: persist that the user dismissed the battery prompt so it is not shown again.
+    fun dismissBatteryPrompt() = viewModelScope.launch { settingsRepository.setBatteryPromptDismissed(true) }
 
     private fun startSensors() {
         val context = getApplication<Application>().applicationContext
@@ -214,6 +222,10 @@ class RaceViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun getPointsForSession(sessionId: String) = repository.getPointsForSession(sessionId)
 
     suspend fun getSession(sessionId: String) = repository.getSession(sessionId)
+
+    // B1: reactive session load so the Summary screen updates once stopRecording() finishes
+    // writing the aggregate columns, instead of racing it with a one-shot read.
+    fun observeSession(sessionId: String) = repository.observeSession(sessionId)
 
     // E2: per-session metrics computed on demand from the session's points.
     suspend fun getSessionStats(sessionId: String): SessionStats =
