@@ -34,9 +34,31 @@ jobs:
             app/build/reports/lint-results-*.html
           if-no-files-found: ignore
 
-  # Device-only instrumented tests (RaceRecordingServiceTest) on a Gradle Managed Device.
-  # Uses a headless ATD image on a KVM-accelerated Linux runner.
+  # Decide whether the slow instrumented job needs to run on a PR: only when the device-relevant
+  # code changes. On push to main (and manual dispatch) it always runs — see the instrumented `if`.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      device: ${{ steps.filter.outputs.device }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            device:
+              - 'app/src/main/java/eu/monniot/speed/service/**'
+              - 'app/src/main/java/eu/monniot/speed/sensor/**'
+              - 'app/src/androidTest/**'
+              - 'app/build.gradle.kts'
+              - '.github/workflows/ci.yml'
+
+  # Device-only instrumented tests (RaceRecordingServiceTest) on a Gradle Managed Device (headless
+  # ATD image, KVM-accelerated runner). Runs on every push to main and manual dispatch, but on PRs
+  # only when service/sensor/androidTest/build config changed — it's a single, slow device test.
   instrumented:
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.device == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,10 +72,18 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Accept licenses & pre-install the managed-device image
+      # Cache the ~1 GB ATD system image so subsequent runs skip the download (the dominant cost).
+      # The image is immutable, so a static key is safe. (Not caching the AVD/boot-snapshot on
+      # purpose — GMD snapshot reuse is a known CI flake source; revisit if boot time matters.)
+      - name: Cache ATD system image
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/lib/android/sdk/system-images/android-30/aosp_atd
+          key: avd-sysimg-android30-aosp_atd-x86
+      - name: Accept licenses & ensure the managed-device image is present
         # The Gradle Managed Device auto-downloads the system image, but the SDK license must be
-        # accepted first (the runner doesn't ship it pre-accepted). Pre-installing the exact image
-        # the device needs also makes provisioning deterministic.
+        # accepted first (the runner doesn't ship it pre-accepted). With the cache warm, sdkmanager
+        # sees the image already installed and is a fast no-op.
         run: |
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
