@@ -8,10 +8,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.ServiceTestRule
 import eu.monniot.speed.sensor.GpsCollector
 import eu.monniot.speed.sensor.ImuCollector
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,6 +23,19 @@ class RaceRecordingServiceTest {
 
     @get:Rule
     val serviceRule = ServiceTestRule()
+
+    /**
+     * These instrumented tests share one process, and [RaceRecordingService.state] is backed by a
+     * process-static flow. Reset it before each test so leaked state from a prior test (e.g.
+     * isSensorsEnabled left true) can't make this test's assertions pass/fail spuriously.
+     */
+    @Before
+    fun resetServiceState() {
+        val field = RaceRecordingService::class.java.getDeclaredField("_state")
+        field.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        (field.get(null) as MutableStateFlow<ServiceState>).value = ServiceState()
+    }
 
     /**
      * Polls [condition] until it becomes true or [timeoutMs] elapses, instead of a flat
