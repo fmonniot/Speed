@@ -278,4 +278,73 @@ class SessionStatsTest {
         val stats = SessionStatsComputer.compute(points)
         assertEquals(0, stats.movingPercent)
     }
+
+    // -------------------------------------------------------------------------
+    // filterStationary = true
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun filterStationary_distanceSkipsStationaryGpsNoise() {
+        // A stationary stop with GPS drift to a far-off position should not inflate distance.
+        // Without filtering the big detour through lon=10 would dominate; with filtering
+        // only the moving-to-moving haversine is computed.
+        val points = listOf(
+            dp(latitude = 0.0, longitude = 0.0, derivedSpeedMs = 10f),   // moving
+            dp(latitude = 0.0, longitude = 10.0, derivedSpeedMs = 0f),   // stationary, drifted far
+            dp(latitude = 1.0, longitude = 0.0, derivedSpeedMs = 10f),   // moving
+        )
+        val filtered = SessionStatsComputer.compute(points, filterStationary = true)
+        val unfiltered = SessionStatsComputer.compute(points, filterStationary = false)
+
+        // Filtered distance = pt0 → pt2 ≈ 111 195 m (1 degree lat at equator).
+        assertEquals(111_195f, filtered.distanceM, 500f)
+        // Unfiltered distance is much larger because of the lon=10 detour.
+        assertTrue(
+            "unfiltered distance should exceed filtered by >100 km",
+            unfiltered.distanceM > filtered.distanceM + 100_000f,
+        )
+    }
+
+    @Test
+    fun filterStationary_movingPercentUsesTotalPointCount() {
+        // 2 moving + 2 stationary; movingPercent must be 50 even when filterStationary is on,
+        // because the denominator is always the full stored-point count.
+        val points = listOf(
+            dp(derivedSpeedMs = 10f),
+            dp(derivedSpeedMs = 0f),
+            dp(derivedSpeedMs = 20f),
+            dp(derivedSpeedMs = 0.4f),
+        )
+        val stats = SessionStatsComputer.compute(points, filterStationary = true)
+        assertEquals(50, stats.movingPercent)
+    }
+
+    @Test
+    fun filterStationary_allStationaryPoints_returnsZeros() {
+        // If every point is stationary and filtering is on, workingPoints is empty.
+        // Should return all-zero stats without throwing.
+        val points = listOf(
+            dp(latitude = 0.0, longitude = 0.0, derivedSpeedMs = 0f),
+            dp(latitude = 0.1, longitude = 0.0, derivedSpeedMs = 0.2f),
+        )
+        val stats = SessionStatsComputer.compute(points, filterStationary = true)
+        assertEquals(0f, stats.distanceM, 0f)
+        assertEquals(0f, stats.avgSpeedMs, 0f)
+        assertEquals(0f, stats.maxSpeedMs, 0f)
+        assertEquals(0, stats.movingPercent)
+    }
+
+    @Test
+    fun filterStationary_false_behaviourUnchanged() {
+        // Explicit false must produce the same result as the no-arg overload.
+        val points = listOf(
+            dp(latitude = 0.0, longitude = 0.0, derivedSpeedMs = 10f),
+            dp(latitude = 1.0, longitude = 0.0, derivedSpeedMs = 20f),
+        )
+        val explicit = SessionStatsComputer.compute(points, filterStationary = false)
+        val default  = SessionStatsComputer.compute(points)
+        assertEquals(explicit.distanceM,    default.distanceM,    0f)
+        assertEquals(explicit.maxSpeedMs,   default.maxSpeedMs,   0f)
+        assertEquals(explicit.movingPercent, default.movingPercent)
+    }
 }
