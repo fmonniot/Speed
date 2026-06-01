@@ -83,10 +83,6 @@ class RaceRecordingService : LifecycleService() {
         const val CHANNEL_ID = "race_recording"
         const val NOTIFICATION_ID = 1
 
-        // Below this fused speed (m/s) the rider is treated as stationary for auto-pause.
-        // Matches SessionStatsComputer's "moving" cutoff so distance/moving% stay consistent.
-        private const val AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5f
-
         private val _state = MutableStateFlow(ServiceState())
         val state: StateFlow<ServiceState> = _state.asStateFlow()
     }
@@ -138,22 +134,19 @@ class RaceRecordingService : LifecycleService() {
                         )
                     }
 
-                    // Save to DB and update recording stats if recording. When auto-pause is on,
-                    // skip persisting points captured while stationary so the session pauses itself.
+                    // Always persist every point; stationary filtering is applied at
+                    // finalization time via SessionStatsComputer.filterStationary.
                     if (_state.value.isRecording) {
-                        val stationary = (point.derivedSpeedMs ?: 0f) < AUTO_PAUSE_SPEED_THRESHOLD_MS
-                        if (!(autoPauseEnabled && stationary)) {
-                            repository.insertDataPoint(point)
-                            _state.update {
-                                it.copy(
-                                    latestPoint = point,
-                                    pointCount = it.pointCount + 1,
-                                    elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
-                                )
-                            }
-                            if (_state.value.pointCount % 10 == 0) {
-                                updateNotification(point)
-                            }
+                        repository.insertDataPoint(point)
+                        _state.update {
+                            it.copy(
+                                latestPoint = point,
+                                pointCount = it.pointCount + 1,
+                                elapsedSeconds = ((point.elapsedRealtimeNs - it.sessionStartElapsedNs) / 1_000_000_000).toInt()
+                            )
+                        }
+                        if (_state.value.pointCount % 10 == 0) {
+                            updateNotification(point)
                         }
                     }
                 }
@@ -319,15 +312,22 @@ class RaceRecordingService : LifecycleService() {
 
         dataFusion?.currentSessionId = null
         wakeLock?.let { if (it.isHeld) it.release() }
-        
+
         rawSink?.stop()
 
+        // Snapshot before the coroutine so a mid-finalization settings change can't race.
+        val autoPause = autoPauseEnabled
         val currentState = _state.value
         lifecycleScope.launch {
             currentState.sessionId?.let { sid ->
                 val points = repository.getPointsForSession(sid)
-                // E2/E3: compute and persist per-session aggregates at finalize.
-                val stats = eu.monniot.speed.domain.SessionStatsComputer.compute(points)
+                // E2/E3: compute and persist per-session aggregates at finalize. Pass the
+                // snapshotted autoPause flag so stationary points are filtered from stats
+                // when the user had auto-pause on for this ride.
+                val stats = eu.monniot.speed.domain.SessionStatsComputer.compute(
+                    points,
+                    filterStationary = autoPause,
+                )
                 repository.updateSession(
                     Session(
                         sessionId = sid,
@@ -341,6 +341,7 @@ class RaceRecordingService : LifecycleService() {
                         maxLeanDeg = stats.maxLeanDeg,
                         hardBrakeG = stats.hardBrakeG,
                         movingPercent = stats.movingPercent,
+                        autoPauseEnabled = autoPause,
                     )
                 )
                 // E5: match this ride's track against defined segments and record attempts.
