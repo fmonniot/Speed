@@ -13,11 +13,14 @@ All four phases below have landed on branch `test-infra-overhaul`:
 - **Phase 4** — `.github/workflows/ci.yml` (unit+lint on every push/PR; GMD/ATD instrumented
   job) and a `pixel30atd` Gradle Managed Device in `build.gradle.kts`.
 
-Full JVM suite: 114 tests, 0 failures. `./gradlew :app:testDebugUnitTest :app:lintDebug` is green.
+Validated locally:
+- JVM suite: 114 tests, 0 failures. `./gradlew :app:testDebugUnitTest :app:lintDebug` is green.
+- Instrumented: `./gradlew :app:pixel30atdDebugAndroidTest` on the `pixel30atd` Gradle Managed
+  Device (aosp-atd API 30) — 2 tests, 0 failures. This also exercised the exact GMD config CI uses.
 
 Remaining caveats:
-- The instrumented job has not yet run on a real CI runner (no local `adb`/emulator to
-  dry-run it); first execution will be on GitHub Actions.
+- The CI workflow itself hasn't run on a GitHub Actions runner yet (validated locally instead);
+  first hosted run will be on push.
 - `RaceRecordingServiceTest`'s satellite-reset assertion verifies the post-stop state is clean;
   it does not first inject a live fix (no GPS on the ATD image), so it guards the reset path
   rather than a full set→clear cycle.
