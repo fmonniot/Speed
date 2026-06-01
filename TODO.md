@@ -1,5 +1,31 @@
 # Testing strategy & remediation plan
 
+## Status: implemented (2026-05-31)
+
+All four phases below have landed on branch `test-infra-overhaul`:
+- **Phase 1** — deleted the stub/dup/stale tests; hardened `RaceRecordingServiceTest`
+  (poll helper + satellites/accuracy reset assertions).
+- **Phase 2** — Robolectric Compose test (`RideHomeScreenTest`) and repository integration
+  test (`RaceRepositoryTest`) now run in the JVM suite. Compose-under-Robolectric is enabled
+  via `unitTests.isIncludeAndroidResources` + `ui-test-junit4`/`ui-test-manifest`.
+- **Phase 3** — `RaceDatabaseTest`/`SegmentDaoTest` moved to `src/test` (Robolectric);
+  `androidTest` now holds only the device-dependent `RaceRecordingServiceTest`.
+- **Phase 4** — `.github/workflows/ci.yml` (unit+lint on every push/PR; GMD/ATD instrumented
+  job) and a `pixel30atd` Gradle Managed Device in `build.gradle.kts`.
+
+Full JVM suite: 114 tests, 0 failures. `./gradlew :app:testDebugUnitTest :app:lintDebug` is green.
+
+Remaining caveats:
+- The instrumented job has not yet run on a real CI runner (no local `adb`/emulator to
+  dry-run it); first execution will be on GitHub Actions.
+- `RaceRecordingServiceTest`'s satellite-reset assertion verifies the post-stop state is clean;
+  it does not first inject a live fix (no GPS on the ATD image), so it guards the reset path
+  rather than a full set→clear cycle.
+
+The assessment and plan that produced this work are kept below for context.
+
+---
+
 ## Assessment (2026-05-31)
 
 Verified against the code, build config, and a live test run — not taken on faith from the
