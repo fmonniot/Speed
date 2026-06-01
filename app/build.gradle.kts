@@ -45,6 +45,13 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged Android resources (themes, drawables) to render
+            // real Compose screens on the JVM.
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 kotlin {
@@ -89,6 +96,11 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.robolectric)
+    // JVM (Robolectric) Compose UI + Room integration tests. ui-test-junit4 transitively
+    // provides androidx.test core/runner/ext-junit used by the Room tests too.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.rules)
