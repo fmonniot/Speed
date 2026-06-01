@@ -13,18 +13,23 @@ All four phases below have landed on branch `test-infra-overhaul`:
 - **Phase 4** — `.github/workflows/ci.yml` (unit+lint on every push/PR; GMD/ATD instrumented
   job) and a `pixel30atd` Gradle Managed Device in `build.gradle.kts`.
 
-Validated on hosted GitHub Actions CI (PR #4) — all jobs green:
-- `unit` (testDebugUnitTest + lintDebug): ~5-6 min. JVM suite 114 tests, 0 failures.
-- `instrumented` (pixel30atd GMD on a KVM runner): ~10 min, 2 tests, 0 failures.
-- `changes` (dorny/paths-filter): gates the instrumented job — runs on push to main, manual
-  dispatch, and PRs touching service/sensor/androidTest/build config; other PRs get unit only.
+CI (GitHub Actions, `.github/workflows/ci.yml`):
+- `unit` (testDebugUnitTest + lintDebug): the only job gating merges. ~5-6 min, JVM suite
+  114 tests, 0 failures. Covers domain/fusion/export, Room (Robolectric), and Compose screens.
+- `instrumented` (pixel30atd GMD): **disabled on push/PR; manual-run only (workflow_dispatch).**
+  See below.
 
-CI runtime notes:
-- The instrumented job is ~10 min and the ATD-image cache barely changes that (cache-miss 9m47s
-  vs cache-hit 9m48s) — the bottleneck is AVD creation + emulator cold boot, not the image
-  download. The real PR-speed lever is the path filter (most PRs skip the instrumented job).
-- To actually cut the instrumented job to ~3-4 min you'd have to cache the AVD/boot-snapshot,
-  intentionally skipped here because GMD snapshot reuse is a known CI flake source.
+Why the instrumented job is not enabled on CI:
+- AGP 9.2.1's GMD provisioning (`:app:pixel30atdSetup`) is nondeterministic on the GitHub-hosted
+  x86 runner: it intermittently fails *before any test runs* with
+  `MissingValueException: Cannot query the value of this property because it has no value available`
+  (alongside a "device does not specify a testedAbi" notice). The exact same commit passed one CI
+  run and failed the next. Pinning `testedAbi` and adding a task retry did not fix it (the retry
+  fails immediately — GMD leaves its setup state poisoned). It is an AGP/GMD-on-CI issue, not a
+  test problem: `RaceRecordingServiceTest` passes reliably on the GMD **locally**.
+- The device test is therefore run locally (`./gradlew :app:pixel30atdDebugAndroidTest`) or via the
+  manual "Run workflow" dispatch. To re-enable on push/PR later: a newer AGP that fixes GMD setup,
+  or switch CI to `reactivecircus/android-emulator-runner` + `connectedDebugAndroidTest`.
 
 `RaceRecordingServiceTest` notes:
 - It uses generous polling (10s) + an @After teardown because the tests share one process and a
