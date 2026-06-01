@@ -1,45 +1,107 @@
+# Testing strategy & remediation plan
 
-- ~~Add a stop button (same action as the notification) on the home screen, next to the gps/imu/battery indicators.~~ (done)
+## Assessment (2026-05-31)
 
-- ~~Investigate why taping stop on the notification do not change the gps satellite count. It should go to zero as the stop action should kill all location related features.~~ (done)
+Verified against the code, build config, and a live test run — not taken on faith from the
+earlier write-up (parts of which were inaccurate; see "Corrections" below).
 
-- Could the auto pause settings be something we apply to traces after the fact? Less stress for the user to make a choice that is not reversible (they make one choice, and then physically do the ride).
+**The unit layer is genuinely good — keep it.**
+- ~2,900 LOC of JVM/Robolectric tests across `domain`, `fusion`, `export`, `util`.
+- `./gradlew :app:testDebugUnitTest` → BUILD SUCCESSFUL, all green.
+- `VelocityCalibrationTests` drives the Kalman filter against 6 real CSV traces in
+  `src/test/resources/raw_traces/`. This is a real asset. Pure computation like this is
+  correctly unit-tested and should stay that way.
 
-- ~~Could we use another icon for the home/race screen in the bottom nav? A home button feels a bit out of place in the context of this app and what the particular screen is about.~~ (done)
+**The instrumented layer is the problem — and worse than "stale tests":**
+
+| Issue | Reality |
+|---|---|
+| No CI | There is no `.github/workflows`, no CI of any kind. Nothing runs automatically. |
+| No device in the loop | `adb` isn't even installed locally. `androidTest` is effectively write-only. |
+| `NavigationTest` stale | Asserts `"START RACE"`, `"Past Sessions"`, `onNodeWithContentDescription("Sessions")`. Real nav is `Ride/Trips/Stats/Settings`, home heading `"Ready to ride"`. Compiles, but every assertion would fail on first run. |
+| Duplicate test | `FusionIntegrationTest.kt` exists in both `test/` (Robolectric, runs) and `androidTest/` (instrumented, never runs), testing the same path. |
+| `RaceRecordingServiceTest` | Never asserts satellites/accuracy reset (the `a3bade2` bug); uses bare `Thread.sleep(1000)`. |
+| `Example*Test` stubs | Both boilerplate, never removed. |
+
+**The real coverage gap:** the entire behavior layer is untested — `RaceViewModel` (301 LOC:
+`createSegment`+haversine, export orchestration, toggle/record logic) and every Compose screen.
+This is the code most likely to break on refactor.
+
+### Corrections to the earlier write-up
+- It claimed `ui-test-junit4` "just needs to be added to `androidTestImplementation`." It is
+  already present (`app/build.gradle.kts:101`, plus `ui-test-manifest:103`). The infra is wired
+  up and unused, not missing.
+- It implied "CI would show it passing." There is no CI; the tests simply never execute.
+
+## Strategic direction
+
+Two test layers exist but only one *runs*. In a single-dev, no-CI, no-emulator setup, any test
+that needs a device is dead weight. So "prefer end-to-end" here means: push integration-level
+tests **down into the JVM/Robolectric suite** that runs on every `./gradlew test`, and keep the
+device-bound `androidTest` set as small as possible — then make even that small set runnable in CI.
+
+Robolectric gives a real `Application`; Room has an in-memory builder; Compose screens take plain
+params — so real ViewModel + real Room + real screen rendering can be tested on the JVM without a
+device. That is genuine end-to-end confidence that executes for free on every build.
 
 ---
 
-## Testing debt
+## Plan
 
-The unit test suite (domain, fusion, export, util) is in good shape — plain JUnit4, fast, reliable. The instrumented layer has two serious problems.
+### Phase 1 — Cleanup (hygiene, zero risk)
+1. Delete `ExampleUnitTest`, `ExampleInstrumentedTest`.
+2. Delete the instrumented `FusionIntegrationTest` (keep the Robolectric one that runs).
+3. Delete the stale `NavigationTest` (rewritten as a Robolectric test in Phase 2, where it runs).
+4. Fix `RaceRecordingServiceTest`: add satellites/accuracy-reset assertions; replace `Thread.sleep`
+   with a poll helper (`awaitCondition { ... }`).
 
-### NavigationTest is completely stale
+### Phase 2 — Build the missing behavior layer (JVM/Robolectric, runs on every build)
+These live in `src/test/` so they execute in the fast, free suite:
+1. **ViewModel + Room integration tests** (highest leverage, the "E2E-ish" win): real in-memory
+   Room + real `RaceRepository` + real `RaceViewModel`. Cover create-segment, delete-session,
+   stats computation, export wiring.
+2. **Robolectric Compose screen tests** via `createComposeRule()` — establish the pattern.
+   First: `RideHomeScreen` stop-chip (`StopChip`, `contentDescription = "Stop sensors"`, visible
+   only when `isSensorsEnabled`, fires `onStop`). Then a nav smoke test replacing the deleted
+   `NavigationTest`.
 
-`NavigationTest` references UI text and content descriptions from an old version of the app:
-`"START RACE"`, `"Past Sessions"`, `"Recording Settings"`, `onNodeWithContentDescription("Sessions")`, `onNodeWithContentDescription("Race")`, `"ID: test-session-123"`, `"Export CSV"` — none of these exist in the current UI. If run today every assertion fails. This file gives false confidence: CI would show it passing only because it is probably never executed.
+### Phase 3 — Shrink `androidTest` to only what truly needs a device
+Move device-independent tests to `src/test/` (Robolectric):
+1. `RaceDatabaseTest` / `SegmentDaoTest` → Robolectric + `Room.inMemoryDatabaseBuilder()`.
+2. Remove the redundant instrumented `FusionIntegrationTest` (done in Phase 1).
+3. Leave behind in `androidTest/` only what genuinely needs a device:
+   `RaceRecordingServiceTest` (foreground service, wakelock, real `Binder`) and any real GPS/IMU
+   sensor-pipeline tests.
 
-Action: rewrite `NavigationTest` against the current nav graph, or delete it and start fresh. The current screen labels are "Ride", "Trips", "Stats", "Settings"; the home screen heading is "Ready to ride"; etc.
+### Phase 4 — CI (makes all the above durable)
+Without CI, every fix above rots again. Two-job GitHub Actions workflow:
 
-### No isolated Compose UI test infrastructure
+1. **`unit` job** (every push, ~1 min, free): `./gradlew :app:test :app:lint`. After Phases 2–3
+   this covers Room, fusion, ViewModel+repository, and Compose/nav behavior.
+2. **`instrumented` job** — Gradle Managed Devices with an ATD (Automated Test Device) image on a
+   KVM-accelerated `ubuntu-latest` runner, for the handful of true device tests. Add to
+   `app/build.gradle.kts`:
+   ```kotlin
+   android.testOptions.managedDevices.localDevices {
+       create("pixel30atd") {
+           device = "Pixel 6"
+           apiLevel = 30
+           systemImageSource = "aosp-atd"   // headless, faster, lower flake
+       }
+   }
+   ```
+   CI runs `./gradlew pixel30atdDebugAndroidTest` after enabling KVM:
+   ```yaml
+   - run: |
+       echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+       sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+   ```
+   Because the device set is small, run it on every PR; gate to `main`/nightly/`workflow_dispatch`
+   if PR speed matters. (Firebase Test Lab is the cloud-device alternative but needs GCP + cost —
+   overkill here.)
 
-There are no `createComposeRule()`-based tests anywhere. UI behaviour (conditional rendering, click callbacks, state-driven visibility) is entirely untested. This made it impossible to write a clean test for the stop-chip change (item 1 above) without first establishing the pattern from scratch.
-
-What is missing:
-- A composable test for `RideHomeScreen`: assert the Stop chip is visible only when `serviceState.isSensorsEnabled = true`, is hidden when false, and that clicking it fires `onStop`.
-- A general pattern for screen-level composable tests so future UI changes can be verified cheaply. The dependency (`androidx.compose.ui:ui-test-junit4`) is already in the BOM — it just needs to be added to `androidTestImplementation` in `build.gradle.kts`.
-
-### RaceRecordingServiceTest misses the satellite-reset assertion
-
-`testSensorsToggleAndCollection` verifies `isSensorsEnabled` goes false after stopping, but does not assert that `satellites` and `currentAccuracyM` are cleared. The bug fixed in commit `a3bade2` would not have been caught by the existing test. Add assertions:
-
-```kotlin
-assertEquals(0, RaceRecordingService.state.value.satellites.usedInFix)
-assertEquals(0, RaceRecordingService.state.value.satellites.visible)
-assertNull(RaceRecordingService.state.value.currentAccuracyM)
-```
-
-The test also uses bare `Thread.sleep` for synchronization, which is fragile. Consider replacing with a polling helper (e.g. `awaitCondition { RaceRecordingService.state.value.isSensorsEnabled }`) or using `turbine` for flow assertions.
-
-### ExampleInstrumentedTest is still the boilerplate stub
-
-`ExampleInstrumentedTest.kt` was never removed or repurposed. Delete it to keep the test surface honest.
+## Sequencing note
+Phase 1 first (quick hygiene). Phases 2 and 3 are the bulk of the value. Phase 4 should land
+*with or right after* Phase 2 so the new JVM suite is actually enforced. Deliberately not
+investing in more instrumented Compose/nav tests — they won't add confidence the JVM suite
+doesn't already give, and they cost emulator time.
