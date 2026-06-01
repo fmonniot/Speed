@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, free safety net: JVM unit suite (domain, fusion, export, Room via Robolectric,
+  # Compose screen tests) + lint. Runs on every push and PR.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests + lint
+        run: ./gradlew :app:testDebugUnitTest :app:lintDebug --stacktrace
+      - name: Upload test & lint reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+
+  # Device-only instrumented tests (RaceRecordingServiceTest) on a Gradle Managed Device.
+  # Uses a headless ATD image on a KVM-accelerated Linux runner.
+  instrumented:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Instrumented tests (Gradle Managed Device)
+        run: ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace
+      - name: Upload instrumented reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-reports
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore

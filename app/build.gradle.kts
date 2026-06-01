@@ -51,6 +51,18 @@ android {
             // real Compose screens on the JVM.
             isIncludeAndroidResources = true
         }
+        // Gradle Managed Device for the device-only instrumented tests (RaceRecordingServiceTest).
+        // ATD (Automated Test Device) is a headless, CI-optimised image; run in CI on a
+        // KVM-accelerated Linux runner via `./gradlew :app:pixel30atdDebugAndroidTest`.
+        managedDevices {
+            localDevices {
+                create("pixel30atd") {
+                    device = "Pixel 6"
+                    apiLevel = 30
+                    systemImageSource = "aosp-atd"
+                }
+            }
+        }
     }
 }
 
