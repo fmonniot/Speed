@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Leaderboard
 import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.TwoWheeler
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -123,7 +123,7 @@ private fun NavItemColumn(
 }
 
 private val previewItems = listOf(
-    SpeedNavItem("ride", "Ride", Icons.Rounded.Home),
+    SpeedNavItem("ride", "Ride", Icons.Rounded.TwoWheeler),
     SpeedNavItem("trips", "Trips", Icons.Rounded.Route),
     SpeedNavItem("stats", "Stats", Icons.Rounded.Leaderboard),
     SpeedNavItem("settings", "Settings", Icons.Rounded.Settings),

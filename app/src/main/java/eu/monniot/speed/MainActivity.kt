@@ -19,14 +19,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.outlined.Leaderboard
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.TwoWheeler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -550,7 +550,7 @@ enum class MainDestination(
     val icon: ImageVector,
     val selectedIcon: ImageVector,
 ) {
-    RIDE(Routes.RIDE, "Ride", Icons.Outlined.Home, Icons.Filled.Home),
+    RIDE(Routes.RIDE, "Ride", Icons.Outlined.TwoWheeler, Icons.Filled.TwoWheeler),
     TRIPS(Routes.TRIPS, "Trips", Icons.Outlined.Route, Icons.Filled.Route),
     STATS(Routes.STATS, "Stats", Icons.Outlined.Leaderboard, Icons.Filled.Leaderboard),
     SETTINGS(Routes.SETTINGS, "Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
