@@ -244,6 +244,7 @@ private fun SpeedNavHost(navController: NavHostController, viewModel: RaceViewMo
                     viewModel.startRecording()
                     navController.navigate(Routes.LIVE)
                 },
+                onStop = { viewModel.toggleSensors() },
                 onOpenSummary = { id -> navController.navigate(Routes.summary(id)) },
                 onOpenTrips = { navController.navigate(Routes.tripsThisWeek()) },
                 onOpenStats = { navController.navigate(Routes.STATS) },

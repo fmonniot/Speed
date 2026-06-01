@@ -60,6 +60,7 @@ private fun PreviewRideTab() {
                     thisWeekCount = 2,
                     lifetimeDistanceM = 8_412_000f,
                     onRecord = {},
+                    onStop = {},
                     onOpenSummary = {},
                     onOpenTrips = {},
                     onOpenStats = {},
