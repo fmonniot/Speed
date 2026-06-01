@@ -50,6 +50,14 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Accept licenses & pre-install the managed-device image
+        # The Gradle Managed Device auto-downloads the system image, but the SDK license must be
+        # accepted first (the runner doesn't ship it pre-accepted). Pre-installing the exact image
+        # the device needs also makes provisioning deterministic.
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "system-images;android-30;aosp_atd;x86" >/dev/null 2>&1 || true
       - name: Instrumented tests (Gradle Managed Device)
         run: ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace
       - name: Upload instrumented reports
