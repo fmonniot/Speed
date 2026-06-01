@@ -8,7 +8,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.rule.ServiceTestRule
 import eu.monniot.speed.sensor.GpsCollector
 import eu.monniot.speed.sensor.ImuCollector
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -19,6 +21,25 @@ class RaceRecordingServiceTest {
 
     @get:Rule
     val serviceRule = ServiceTestRule()
+
+    /**
+     * Polls [condition] until it becomes true or [timeoutMs] elapses, instead of a flat
+     * [Thread.sleep]. Service state updates arrive asynchronously off the fusion loop, so a fixed
+     * sleep is either too short (flaky) or needlessly slow.
+     */
+    private fun awaitCondition(
+        timeoutMs: Long = 5_000,
+        intervalMs: Long = 50,
+        message: String = "Condition not met within ${timeoutMs}ms",
+        condition: () -> Boolean,
+    ) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return
+            Thread.sleep(intervalMs)
+        }
+        assertTrue(message, condition())
+    }
 
     @Test
     fun testServiceStartStopRecordingAndWakeLock() {
@@ -39,7 +60,7 @@ class RaceRecordingServiceTest {
         context.startService(startIntent)
 
         // Wait for state update
-        Thread.sleep(1000) 
+        awaitCondition { RaceRecordingService.state.value.isRecording }
         assertTrue(RaceRecordingService.state.value.isRecording)
 
         // Verify WakeLock is held via reflection
@@ -54,11 +75,11 @@ class RaceRecordingServiceTest {
         }
         context.startService(stopIntent)
 
-        Thread.sleep(1000)
+        awaitCondition { !RaceRecordingService.state.value.isRecording }
         assertFalse(RaceRecordingService.state.value.isRecording)
-        
-        // Note: WakeLock might be released asynchronously or after some cleanup
-        // But it should eventually be released.
+
+        // WakeLock is released asynchronously during cleanup; poll until it is.
+        awaitCondition(message = "WakeLock should be released after recording") { wakeLock?.isHeld == false }
         assertTrue("WakeLock should be released after recording", wakeLock?.isHeld == false)
     }
 
@@ -75,8 +96,8 @@ class RaceRecordingServiceTest {
             action = RaceRecordingService.ACTION_START_SENSORS
         }
         context.startService(startSensorsIntent)
-        
-        Thread.sleep(1000)
+
+        awaitCondition { RaceRecordingService.state.value.isSensorsEnabled }
         assertTrue(RaceRecordingService.state.value.isSensorsEnabled)
 
         // Verify collectors are active via reflection
@@ -95,10 +116,17 @@ class RaceRecordingServiceTest {
             action = RaceRecordingService.ACTION_STOP_SENSORS
         }
         context.startService(stopSensorsIntent)
-        
-        Thread.sleep(1000)
+
+        awaitCondition { !RaceRecordingService.state.value.isSensorsEnabled }
         assertFalse(RaceRecordingService.state.value.isSensorsEnabled)
         assertFalse("GPS Collector should be inactive", gpsCollector.isActive.value)
         assertFalse("IMU Collector should be inactive", imuCollector.isActive.value)
+
+        // Regression guard for the a3bade2 fix: stopping sensors must clear the last-known
+        // satellite/accuracy readings so the HUD doesn't keep showing stale fix data.
+        val state = RaceRecordingService.state.value
+        assertEquals(0, state.satellites.usedInFix)
+        assertEquals(0, state.satellites.visible)
+        assertNull(state.currentAccuracyM)
     }
 }
