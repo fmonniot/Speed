@@ -263,7 +263,7 @@ class RaceRecordingService : LifecycleService() {
         }
         gpsCollector.stop()
         imuCollector.stop()
-        _state.update { it.copy(isSensorsEnabled = false) }
+        _state.update { it.copy(isSensorsEnabled = false, satellites = SatelliteInfo(), currentAccuracyM = null) }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
