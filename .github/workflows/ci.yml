@@ -94,7 +94,12 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" "system-images;android-30;aosp_atd;x86" >/dev/null 2>&1 || true
       - name: Instrumented tests (Gradle Managed Device)
-        run: ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace
+        # Retry once: GMD device setup (AVD create + emulator boot/snapshot) is occasionally flaky
+        # on CI. The test code itself is deterministic; this only absorbs provisioning hiccups.
+        run: |
+          ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace \
+            || { echo '::warning::GMD run failed; retrying once after a flaky setup/boot.'; \
+                 ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace; }
       - name: Upload instrumented reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

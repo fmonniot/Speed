@@ -60,6 +60,15 @@ android {
                     device = "Pixel 6"
                     apiLevel = 30
                     systemImageSource = "aosp-atd"
+                    // Pin the tested ABI to the host architecture. AGP 9.x's GMD setup otherwise
+                    // auto-resolves it and intermittently fails with MissingValueException on CI
+                    // (and the default flips to arm64-v8a in AGP 10). x86 on x86_64 CI runners;
+                    // arm64-v8a on Apple Silicon so local runs still work.
+                    testedAbi = if (System.getProperty("os.arch").lowercase() in listOf("aarch64", "arm64")) {
+                        "arm64-v8a"
+                    } else {
+                        "x86"
+                    }
                 }
             }
         }
