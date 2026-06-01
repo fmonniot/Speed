@@ -13,17 +13,25 @@ All four phases below have landed on branch `test-infra-overhaul`:
 - **Phase 4** — `.github/workflows/ci.yml` (unit+lint on every push/PR; GMD/ATD instrumented
   job) and a `pixel30atd` Gradle Managed Device in `build.gradle.kts`.
 
-Validated locally:
-- JVM suite: 114 tests, 0 failures. `./gradlew :app:testDebugUnitTest :app:lintDebug` is green.
-- Instrumented: `./gradlew :app:pixel30atdDebugAndroidTest` on the `pixel30atd` Gradle Managed
-  Device (aosp-atd API 30) — 2 tests, 0 failures. This also exercised the exact GMD config CI uses.
+Validated on hosted GitHub Actions CI (PR #4) — all jobs green:
+- `unit` (testDebugUnitTest + lintDebug): ~5-6 min. JVM suite 114 tests, 0 failures.
+- `instrumented` (pixel30atd GMD on a KVM runner): ~10 min, 2 tests, 0 failures.
+- `changes` (dorny/paths-filter): gates the instrumented job — runs on push to main, manual
+  dispatch, and PRs touching service/sensor/androidTest/build config; other PRs get unit only.
 
-Remaining caveats:
-- The CI workflow itself hasn't run on a GitHub Actions runner yet (validated locally instead);
-  first hosted run will be on push.
-- `RaceRecordingServiceTest`'s satellite-reset assertion verifies the post-stop state is clean;
-  it does not first inject a live fix (no GPS on the ATD image), so it guards the reset path
-  rather than a full set→clear cycle.
+CI runtime notes:
+- The instrumented job is ~10 min and the ATD-image cache barely changes that (cache-miss 9m47s
+  vs cache-hit 9m48s) — the bottleneck is AVD creation + emulator cold boot, not the image
+  download. The real PR-speed lever is the path filter (most PRs skip the instrumented job).
+- To actually cut the instrumented job to ~3-4 min you'd have to cache the AVD/boot-snapshot,
+  intentionally skipped here because GMD snapshot reuse is a known CI flake source.
+
+`RaceRecordingServiceTest` notes:
+- It uses generous polling (10s) + an @After teardown because the tests share one process and a
+  process-static state flow; an earlier version raced on the slower x86 CI emulator (passed on
+  local arm64). See commit history.
+- The satellite-reset assertion verifies the post-stop state is clean; it does not first inject a
+  live fix (no GPS on the ATD image), so it guards the reset path rather than a full set→clear cycle.
 
 The assessment and plan that produced this work are kept below for context.
 
