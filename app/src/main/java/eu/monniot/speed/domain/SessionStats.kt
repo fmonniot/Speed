@@ -115,7 +115,7 @@ object SessionStatsComputer {
             }
 
             point.derivedAccelMs2?.let { a ->
-                if (hardestBrakeMs2 == null || a < hardestBrakeMs2!!) {
+                if (hardestBrakeMs2 == null || a < hardestBrakeMs2) {
                     hardestBrakeMs2 = a
                 }
             }
@@ -125,7 +125,7 @@ object SessionStatsComputer {
 
         // Convert most-negative accel to G; clamp so it is never positive
         val hardBrakeG = if (hardestBrakeMs2 != null) {
-            minOf(0f, hardestBrakeMs2!! / GRAVITY)
+            minOf(0f, hardestBrakeMs2 / GRAVITY)
         } else {
             0f
         }

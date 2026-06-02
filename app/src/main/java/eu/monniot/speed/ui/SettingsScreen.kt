@@ -20,7 +20,7 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.GpsFixed
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.SatelliteAlt
 import androidx.compose.material.icons.rounded.Sensors
@@ -99,7 +99,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(start = 12.dp),
                     )
                 },
-                trailingIcon = Icons.Rounded.HelpOutline,
+                trailingIcon = Icons.AutoMirrored.Rounded.HelpOutline,
                 onTrailingAction = { showHelp = true },
             )
         },

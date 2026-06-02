@@ -30,7 +30,7 @@ import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -260,7 +260,7 @@ fun StatsScreen(
                         if (trendPercent != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Rounded.TrendingUp,
+                                    imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),

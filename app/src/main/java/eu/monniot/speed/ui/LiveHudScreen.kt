@@ -20,7 +20,7 @@ import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Terrain
-import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -326,7 +326,7 @@ private fun MetricTilesGrid(
                 label = "ACCEL",
                 value = accelValue,
                 unit = "g",
-                icon = Icons.Rounded.TrendingUp,
+                icon = Icons.AutoMirrored.Rounded.TrendingUp,
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f),
