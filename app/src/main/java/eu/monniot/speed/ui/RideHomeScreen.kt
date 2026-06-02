@@ -39,6 +39,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -59,7 +60,6 @@ import eu.monniot.speed.ui.theme.SpeedTextStyles
 import eu.monniot.speed.util.LocalUnits
 import eu.monniot.speed.util.UnitFormat
 import java.text.SimpleDateFormat
-import java.util.Locale
 
 // §4.1 — Ride · Ready/Home screen
 @Composable
@@ -402,7 +402,7 @@ private fun LastRideCard(
                 modifier = Modifier.padding(20.dp),
             ) {
                 // Header row
-                val dateFmt = SimpleDateFormat("d MMM", Locale.getDefault())
+                val dateFmt = SimpleDateFormat("d MMM", LocalConfiguration.current.locales[0])
                 val dateStr = dateFmt.format(lastRide.startTimeMs)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
