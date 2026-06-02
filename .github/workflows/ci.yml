@@ -79,7 +79,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Cache ATD system image
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /usr/local/lib/android/sdk/system-images/android-30/aosp_atd
           key: avd-sysimg-android30-aosp_atd-x86
