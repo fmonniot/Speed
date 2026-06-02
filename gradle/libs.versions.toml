@@ -20,7 +20,7 @@ testRules = "1.7.0"
 testRunner = "1.7.0"
 mockito = "5.11.0"
 mockito-kotlin = "5.2.1"
-maplibre = "11.8.0"
+maplibre = "13.2.0"
 robolectric = "4.16"
 
 [libraries]
