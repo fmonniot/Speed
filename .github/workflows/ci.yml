@@ -30,7 +30,7 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest :app:lintDebug --stacktrace
       - name: Upload test & lint reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: unit-reports
           path: |
@@ -88,7 +88,7 @@ jobs:
         run: ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace
       - name: Upload instrumented reports
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: instrumented-reports
           path: app/build/reports/androidTests/
