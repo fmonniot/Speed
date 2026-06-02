@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Fast, free safety net: JVM unit suite (domain, fusion, export, Room via Robolectric,
+  # Compose screen tests) + lint. Runs on every push and PR. This is the only job that gates
+  # merges; it covers the bulk of behaviour because most tests run on the JVM (see CLAUDE.md).
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests + lint
+        run: ./gradlew :app:testDebugUnitTest :app:lintDebug --stacktrace
+      - name: Upload test & lint reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------------------------
+  # Instrumented (device) tests — DISABLED on push/PR, manual-run only (workflow_dispatch).
+  #
+  # Why disabled: the single device test (RaceRecordingServiceTest) runs on a Gradle Managed
+  # Device, and AGP 9.2.1's GMD provisioning (:app:pixel30atdSetup) is nondeterministic on the
+  # GitHub-hosted x86 runner — it intermittently fails before any test runs with:
+  #     MissingValueException: Cannot query the value of this property because it has no value
+  # (often alongside a "device does not specify a testedAbi" notice). The same commit passes one
+  # run and fails the next; pinning testedAbi and retrying the task did not resolve it, and a
+  # retry within the job fails immediately because GMD's setup state is left poisoned. It is an
+  # AGP/GMD CI issue, not a problem with the test (which passes reliably locally).
+  #
+  # How to run the device test instead:
+  #   * Locally (supported path):  ./gradlew :app:pixel30atdDebugAndroidTest
+  #     (Gradle Managed Device; picks arm64-v8a on Apple Silicon, x86 elsewhere — see build.gradle.kts)
+  #   * On CI on demand:  Actions tab -> CI -> "Run workflow" (workflow_dispatch).
+  #
+  # To re-enable on every push/PR once AGP's GMD setup is reliable (e.g. a newer AGP, or after
+  # switching to reactivecircus/android-emulator-runner + connectedDebugAndroidTest), change the
+  # `if:` below to run on push/PR.
+  # ---------------------------------------------------------------------------------------------
+  instrumented:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Cache ATD system image
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/lib/android/sdk/system-images/android-30/aosp_atd
+          key: avd-sysimg-android30-aosp_atd-x86
+      - name: Accept licenses & ensure the managed-device image is present
+        run: |
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "system-images;android-30;aosp_atd;x86" >/dev/null 2>&1 || true
+      - name: Instrumented tests (Gradle Managed Device)
+        run: ./gradlew :app:pixel30atdDebugAndroidTest --stacktrace
+      - name: Upload instrumented reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-reports
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore

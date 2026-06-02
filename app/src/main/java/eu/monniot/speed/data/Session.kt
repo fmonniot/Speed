@@ -19,7 +19,10 @@ data class Session(
     val hardBrakeG: Float? = null,
     val movingPercent: Int? = null,
     // R8: optional user-given ride name; screens fall back to a weekday-derived label when null.
-    val name: String? = null
+    val name: String? = null,
+    // Snapshot of the auto-pause setting at the moment stopRecording() ran. Used to reproduce
+    // the correct filterStationary path when re-computing stats for this session.
+    val autoPauseEnabled: Boolean = false,
 )
 
 // Projection for lists/aggregates. Carries the persisted per-session stats so screens (Trips/Stats/

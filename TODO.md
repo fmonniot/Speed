@@ -1,253 +1,149 @@
-# Speed — Task Backlog
+# Testing strategy & remediation plan
 
-Items are grouped by area. Each task states **what** to do, **where** in the code to do it, and **acceptance criteria** so the result can be verified without running the app.
+## Status: implemented (2026-05-31)
 
-**Identifiers:** `B` = bug · `U` = UX/discoverability · `F` = feature · `R` = research  
-**Statuses:** `todo` · `in-progress` · `blocked` · `done`
+All four phases below have landed on branch `test-infra-overhaul`:
+- **Phase 1** — deleted the stub/dup/stale tests; hardened `RaceRecordingServiceTest`
+  (poll helper + satellites/accuracy reset assertions).
+- **Phase 2** — Robolectric Compose test (`RideHomeScreenTest`) and repository integration
+  test (`RaceRepositoryTest`) now run in the JVM suite. Compose-under-Robolectric is enabled
+  via `unitTests.isIncludeAndroidResources` + `ui-test-junit4`/`ui-test-manifest`.
+- **Phase 3** — `RaceDatabaseTest`/`SegmentDaoTest` moved to `src/test` (Robolectric);
+  `androidTest` now holds only the device-dependent `RaceRecordingServiceTest`.
+- **Phase 4** — `.github/workflows/ci.yml` (unit+lint on every push/PR; GMD/ATD instrumented
+  job) and a `pixel30atd` Gradle Managed Device in `build.gradle.kts`.
 
----
+CI (GitHub Actions, `.github/workflows/ci.yml`):
+- `unit` (testDebugUnitTest + lintDebug): the only job gating merges. ~5-6 min, JVM suite
+  114 tests, 0 failures. Covers domain/fusion/export, Room (Robolectric), and Compose screens.
+- `instrumented` (pixel30atd GMD): **disabled on push/PR; manual-run only (workflow_dispatch).**
+  See below.
 
-## Bugs
+Why the instrumented job is not enabled on CI:
+- AGP 9.2.1's GMD provisioning (`:app:pixel30atdSetup`) is nondeterministic on the GitHub-hosted
+  x86 runner: it intermittently fails *before any test runs* with
+  `MissingValueException: Cannot query the value of this property because it has no value available`
+  (alongside a "device does not specify a testedAbi" notice). The exact same commit passed one CI
+  run and failed the next. Pinning `testedAbi` and adding a task retry did not fix it (the retry
+  fails immediately — GMD leaves its setup state poisoned). It is an AGP/GMD-on-CI issue, not a
+  test problem: `RaceRecordingServiceTest` passes reliably on the GMD **locally**.
+- The device test is therefore run locally (`./gradlew :app:pixel30atdDebugAndroidTest`) or via the
+  manual "Run workflow" dispatch. To re-enable on push/PR later: a newer AGP that fixes GMD setup,
+  or switch CI to `reactivecircus/android-emulator-runner` + `connectedDebugAndroidTest`.
 
-### B1 — Summary screen shows zero stats until Trace is opened
-**Status:** `done`  
-**Area:** `ui/SummaryScreen.kt`, `service/RaceRecordingService.kt`
+`RaceRecordingServiceTest` notes:
+- It uses generous polling (10s) + an @After teardown because the tests share one process and a
+  process-static state flow; an earlier version raced on the slower x86 CI emulator (passed on
+  local arm64). See commit history.
+- The satellite-reset assertion verifies the post-stop state is clean; it does not first inject a
+  live fix (no GPS on the ATD image), so it guards the reset path rather than a full set→clear cycle.
 
-**Problem:** After stopping a recording and navigating to the Summary screen, all stat cards (distance, avg speed, max lateral G, etc.) show `—` or zero. Opening the Trace screen and going back fixes it.
-
-**Root cause:** `stopRecording()` in `RaceRecordingService` finalises the session (computes `SessionStatsComputer`, writes aggregate columns back to Room) inside a coroutine. The Summary screen's `LaunchedEffect(sessionId) { session = viewModel.getSession(sessionId) }` is a one-shot load that may run *before* that write completes, returning a `Session` with null aggregate fields.
-
-**Acceptance criteria:**
-- [ ] After tapping Stop and landing on the Summary screen, `distanceM`, `avgSpeedMs`, `maxSpeedMs`, `maxLateralG`, `maxLeanDeg`, `hardBrakeG`, `movingPercent` are all non-null and non-zero for any ride that had sensor data.
-- [ ] No visible flash of zero values followed by correct values.
-
----
-
-## UX / Discoverability
-
-### U1 — Sensor chips look interactive but are decorative
-**Status:** `done`  
-**Area:** `ui/RideHomeScreen.kt` → `SensorChip` composable
-
-**Problem:** The GPS / IMU / Battery chips use `MaterialTheme.colorScheme.primary` for icon tint. `primary` reads as "active / tappable" in M3. Per the design spec (§4.1), these chips are explicitly decorative.
-
-**Change:** Swap the icon tint from `MaterialTheme.colorScheme.primary` to `MaterialTheme.colorScheme.onSurfaceVariant` to match the spec and the label colour.
-
-**Acceptance criteria:**
-- [ ] Sensor chip icons render in `onSurfaceVariant`, not `primary`.
-- [ ] Chips have no click handler and show no ripple on touch.
-
----
-
-### U2 — Top-speed hero on Summary screen has no visual tap affordance
-**Status:** `done`  
-**Area:** `ui/SummaryScreen.kt`
-
-**Problem:** The top-speed `primaryContainer` card navigates to the Trace on tap (per spec §4.3 #3 and the wired `onOpenTrace` callback), but there is no visual cue that it is interactive — no `chevron_right`, no ripple hint, nothing. Users don't discover it.
-
-**Acceptance criteria:**
-- [ ] The top-speed hero card displays a clear interactive affordance (e.g. a `chevron_right` icon at the bottom-right corner, or a visible ripple, consistent with how other tappable cards look in the app).
-- [ ] Tapping anywhere on the card still navigates to the Trace at the peak-speed moment.
+The assessment and plan that produced this work are kept below for context.
 
 ---
 
-### U3 — Segment concept is hidden
-**Status:** `done`  
-**Decision (2026-05-30):** User chose **option B — elevate segments within the Stats tab** (not a 5th nav tab), since it's unclear yet how central segments are and B is reversible. Spec updated in `design-spec.md` §4.6 + decision note §6.
-**Refined acceptance criteria:**
-- [ ] On the Stats overview, segments are surfaced as a labelled section with a top-segments carousel and a "See all" entry to the full list — not a single easy-to-miss link row.
-- [ ] Each carousel card opens that segment's detail; "See all" opens the Segment list.
-- [ ] When the user has no segments, an inline prompt explains the concept and links to the Segment list.
-**Area:** `ui/StatsScreen.kt`, `MainActivity.kt`
+## Assessment (2026-05-31)
 
-**Problem:** Users don't discover that segments exist. The Stats → Segments link row is the only entry point; it is easy to miss.
+Verified against the code, build config, and a live test run — not taken on faith from the
+earlier write-up (parts of which were inaccurate; see "Corrections" below).
 
-**Investigation needed before implementing:**
-- Would a shortcut chip on the Trips list help?
-- Would a contextual prompt on the Summary screen ("Define a segment from this ride?") help?
+**The unit layer is genuinely good — keep it.**
+- ~2,900 LOC of JVM/Robolectric tests across `domain`, `fusion`, `export`, `util`.
+- `./gradlew :app:testDebugUnitTest` → BUILD SUCCESSFUL, all green.
+- `VelocityCalibrationTests` drives the Kalman filter against 6 real CSV traces in
+  `src/test/resources/raw_traces/`. This is a real asset. Pure computation like this is
+  correctly unit-tested and should stay that way.
 
-**Acceptance criteria (to be refined after UX investigation):**
-- [ ] At least one additional, prominent path to the Segments list exists beyond the Stats overview.
+**The instrumented layer is the problem — and worse than "stale tests":**
 
-**Findings:**
+| Issue | Reality |
+|---|---|
+| No CI | There is no `.github/workflows`, no CI of any kind. Nothing runs automatically. |
+| No device in the loop | `adb` isn't even installed locally. `androidTest` is effectively write-only. |
+| `NavigationTest` stale | Asserts `"START RACE"`, `"Past Sessions"`, `onNodeWithContentDescription("Sessions")`. Real nav is `Ride/Trips/Stats/Settings`, home heading `"Ready to ride"`. Compiles, but every assertion would fail on first run. |
+| Duplicate test | `FusionIntegrationTest.kt` exists in both `test/` (Robolectric, runs) and `androidTest/` (instrumented, never runs), testing the same path. |
+| `RaceRecordingServiceTest` | Never asserts satellites/accuracy reset (the `a3bade2` bug); uses bare `Thread.sleep(1000)`. |
+| `Example*Test` stubs | Both boilerplate, never removed. |
 
-Current state: the only route to the Segments list (`Routes.SEGMENTS`) is the bordered link row at the bottom of Stats · Overview (spec §4.6 #5). The Summary screen has a *segment-PB* row, but it routes to `Routes.SEGMENTS` only conceptually filtered to "this ride's segments" — and it only reads as meaningful once a user already has segments defined. So for a user who has never created a segment, there is effectively no discoverable entry to the feature.
+**The real coverage gap:** the entire behavior layer is untested — `RaceViewModel` (301 LOC:
+`createSegment`+haversine, export orchestration, toggle/record logic) and every Compose screen.
+This is the code most likely to break on refactor.
 
-Two candidate entry points were considered:
+### Corrections to the earlier write-up
+- It claimed `ui-test-junit4` "just needs to be added to `androidTestImplementation`." It is
+  already present (`app/build.gradle.kts:101`, plus `ui-test-manifest:103`). The infra is wired
+  up and unused, not missing.
+- It implied "CI would show it passing." There is no CI; the tests simply never execute.
 
-1. **Shortcut/destination on the Trips screen.** Trips is the most-visited browsing surface. Options range from a non-scoping shortcut chip in the filter-chip row (cheap, but mixes a *navigation* affordance into a row whose other chips are *update-in-place* filters — inconsistent with the §4.4 interaction contract) to a top-bar trailing action. A top-bar action is cleaner but the Trips bar already carries `search` (§4.4); adding a second trailing icon for a secondary concept is questionable.
+## Strategic direction
 
-2. **Contextual prompt on the Summary screen** ("Define a segment from this ride?"). This is the strongest *teaching* moment — the user has just finished a ride and has a concrete track to turn into a segment. It also dovetails with the existing segment-PB row. Cost: it touches the segment-creation flow (the §4.7 "Add" path: draw on map / pick from a ride), which is a larger change than a pure navigation link, and the "pick from a ride" creation path must exist for the prompt to lead anywhere useful.
+Two test layers exist but only one *runs*. In a single-dev, no-CI, no-emulator setup, any test
+that needs a device is dead weight. So "prefer end-to-end" here means: push integration-level
+tests **down into the JVM/Robolectric suite** that runs on every `./gradlew test`, and keep the
+device-bound `androidTest` set as small as possible — then make even that small set runnable in CI.
 
-**Recommendation:** Add the contextual prompt on the Summary screen (option 2) — it is the highest-intent, most teachable surface and reinforces rather than clutters the existing interaction model — **but** confirm with the user first, because it depends on the segment-from-ride creation flow being in scope; if only a lightweight discoverability nudge is wanted, fall back to a single Segments destination reachable from the Stats tab area rather than overloading the Trips filter row.
-
----
-
-### U4 — Trip list rows don't show departure time
-**Status:** `done`  
-**Area:** `ui/TripsScreen.kt`
-
-**Problem:** The date format is `SimpleDateFormat("d MMM", ...)`. For users who record multiple trips per day, there is no way to tell them apart at a glance.
-
-**Change:** Extend the date format to include hour and minute, e.g. `"d MMM · HH:mm"`.
-
-**Acceptance criteria:**
-- [ ] Each trip row in the Trips list shows the date **and** the start time (hour + minute in local timezone).
-- [ ] The extra text fits within the existing `ListRow` layout without truncating the trip name on typical screen widths.
-
----
-
-## Features
-
-### F1 — Delete trips from the UI
-**Status:** `done`  
-**Area:** `ui/TripsScreen.kt` and/or `ui/SummaryScreen.kt`
-
-**Note:** The backend is already complete. `RaceViewModel.deleteSession()` calls `RaceRepository.deleteSession()` which calls `dao.deleteFullSession()` and removes the raw trace file from external storage. This is purely a UI task.
-
-**Acceptance criteria:**
-- [ ] The user can delete a trip from at least one screen (trip list or summary).
-- [ ] A confirmation dialog or undo action is shown before permanent deletion.
-- [ ] After deletion the trip no longer appears in the Trips list or Stats aggregates.
-- [ ] If the deleted session had a raw trace file on disk it is also removed.
+Robolectric gives a real `Application`; Room has an in-memory builder; Compose screens take plain
+params — so real ViewModel + real Room + real screen rendering can be tested on the JVM without a
+device. That is genuine end-to-end confidence that executes for free on every build.
 
 ---
 
-### F2 — Add a Stop action to the foreground notification
-**Status:** `done`  
-**Area:** `service/RaceRecordingService.kt` → `createNotification()`
+## Plan
 
-**Problem:** When the app is backgrounded and the screen is off, the only way to stop recording or kill the service is to re-open the app. The notification has no interactive action.
+### Phase 1 — Cleanup (hygiene, zero risk)
+1. Delete `ExampleUnitTest`, `ExampleInstrumentedTest`.
+2. Delete the instrumented `FusionIntegrationTest` (keep the Robolectric one that runs).
+3. Delete the stale `NavigationTest` (rewritten as a Robolectric test in Phase 2, where it runs).
+4. Fix `RaceRecordingServiceTest`: add satellites/accuracy-reset assertions; replace `Thread.sleep`
+   with a poll helper (`awaitCondition { ... }`).
 
-**Change:** Add a `NotificationCompat.Action` to the notification that sends `ACTION_STOP_SENSORS` (already defined as a constant) to the service via a `PendingIntent`. The action label should be "Stop" (or equivalent).
+### Phase 2 — Build the missing behavior layer (JVM/Robolectric, runs on every build)
+These live in `src/test/` so they execute in the fast, free suite:
+1. **ViewModel + Room integration tests** (highest leverage, the "E2E-ish" win): real in-memory
+   Room + real `RaceRepository` + real `RaceViewModel`. Cover create-segment, delete-session,
+   stats computation, export wiring.
+2. **Robolectric Compose screen tests** via `createComposeRule()` — establish the pattern.
+   First: `RideHomeScreen` stop-chip (`StopChip`, `contentDescription = "Stop sensors"`, visible
+   only when `isSensorsEnabled`, fires `onStop`). Then a nav smoke test replacing the deleted
+   `NavigationTest`.
 
-**Acceptance criteria:**
-- [ ] While the service is running, the notification shows a "Stop" action button.
-- [ ] Tapping the action button stops sensor collection and recording, and dismisses the notification — identical to calling `stopSensors()` from the app.
-- [ ] The action button is present whether sensors are idle or actively recording.
+### Phase 3 — Shrink `androidTest` to only what truly needs a device
+Move device-independent tests to `src/test/` (Robolectric):
+1. `RaceDatabaseTest` / `SegmentDaoTest` → Robolectric + `Room.inMemoryDatabaseBuilder()`.
+2. Remove the redundant instrumented `FusionIntegrationTest` (done in Phase 1).
+3. Leave behind in `androidTest/` only what genuinely needs a device:
+   `RaceRecordingServiceTest` (foreground service, wakelock, real `Binder`) and any real GPS/IMU
+   sensor-pipeline tests.
 
----
+### Phase 4 — CI (makes all the above durable)
+Without CI, every fix above rots again. Two-job GitHub Actions workflow:
 
-### F3 — Pre-warm GPS fix before the user taps Record
-**Status:** `done`  
-**Area:** `service/RaceRecordingService.kt`, `ui/RideHomeScreen.kt`, `viewmodel/RaceViewModel.kt`
+1. **`unit` job** (every push, ~1 min, free): `./gradlew :app:test :app:lint`. After Phases 2–3
+   this covers Room, fusion, ViewModel+repository, and Compose/nav behavior.
+2. **`instrumented` job** — Gradle Managed Devices with an ATD (Automated Test Device) image on a
+   KVM-accelerated `ubuntu-latest` runner, for the handful of true device tests. Add to
+   `app/build.gradle.kts`:
+   ```kotlin
+   android.testOptions.managedDevices.localDevices {
+       create("pixel30atd") {
+           device = "Pixel 6"
+           apiLevel = 30
+           systemImageSource = "aosp-atd"   // headless, faster, lower flake
+       }
+   }
+   ```
+   CI runs `./gradlew pixel30atdDebugAndroidTest` after enabling KVM:
+   ```yaml
+   - run: |
+       echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+       sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+   ```
+   Because the device set is small, run it on every PR; gate to `main`/nightly/`workflow_dispatch`
+   if PR speed matters. (Firebase Test Lab is the cloud-device alternative but needs GCP + cost —
+   overkill here.)
 
-**Problem:** GPS cold-start takes 15–60 seconds. If a user opens the app and immediately taps Record, the first portion of the ride has no GPS fix.
-
-**Context:** A `autoStartSensors` DataStore preference and the corresponding `SettingsRepository.autoStartSensors` flow already exist. `RaceViewModel.init` already reads it and calls `startSensors()` on launch if enabled. This feature is partially plumbed — it just isn't surfaced to the user in Settings.
-
-**Acceptance criteria:**
-- [ ] Settings screen exposes the "Auto-start sensors on launch" toggle (the `autoStartSensors` preference).
-- [ ] When enabled, GPS and IMU start acquiring when the app is opened, before the user taps Record. The Home screen sensor chips reflect the live GPS fix state.
-- [ ] When disabled (default), sensors only start when the user taps Record.
-
----
-
-### F4 — Dark theme: add system-follow option
-**Status:** `done`  
-**Area:** `data/SettingsRepository.kt`, `viewmodel/RaceViewModel.kt`, `ui/SettingsScreen.kt`, `MainActivity.kt`
-
-**Problem:** The dark theme setting is a `Boolean` (`DARK_THEME` `booleanPreferencesKey`). There is no way to follow the system theme.
-
-**Change required:**
-1. Replace `DARK_THEME: booleanPreferencesKey` with a string/enum key holding `LIGHT | DARK | SYSTEM`.
-2. Update `SettingsRepository`, `RaceViewModel`, and `SettingsScreen` to expose and set the three-value option.
-3. In `MainActivity`, map `SYSTEM` → read `isSystemInDarkTheme()` and pass it to `RaceLoggerTheme`.
-
-**Acceptance criteria:**
-- [ ] Settings exposes three choices: Light, Dark, Follow system.
-- [ ] Selecting "Follow system" makes the app theme change automatically when the OS theme changes, without restarting the app.
-- [ ] Existing users who had `darkTheme = false` are migrated to "Light"; those with `darkTheme = true` to "Dark". (DataStore migration or a default fallback is acceptable.)
-
----
-
-### F5 — Auto-pause: add explanatory text
-**Status:** `done`  
-**Area:** `ui/SettingsScreen.kt`
-
-**Problem:** The "Auto-pause" toggle has no supporting text. It is not obvious that it causes stationary points to be excluded from the recording, affecting distance and moving-time stats.
-
-**Change:** Add a one-line supporting text below the toggle label, e.g.: *"Stationary points are not recorded; distance and moving-time stats reflect riding time only."*
-
-**Acceptance criteria:**
-- [ ] The Auto-pause row in Settings shows a subtitle/supporting text explaining the effect.
-- [ ] The text is consistent with the actual threshold (`AUTO_PAUSE_SPEED_THRESHOLD_MS = 0.5 m/s` in `RaceRecordingService`).
-
----
-
-### F6 — Rename app references from "Race Logger" to "Speed"
-**Status:** `done`  
-**Area:** `service/RaceRecordingService.kt`
-
-**Note:** `strings.xml` already has `<string name="app_name">Speed</string>`. The remaining stale reference is in the service notification: `createNotification()` hardcodes the title `"Race Logger"`.
-
-**Acceptance criteria:**
-- [ ] The foreground notification title reads "Speed", not "Race Logger".
-- [ ] No other hardcoded "Race Logger" strings remain in the codebase (verify with `grep -r "Race Logger" app/src`).
-
----
-
-### F7 — Debug build: separate package and display name
-**Status:** `done`  
-**Area:** `app/build.gradle.kts` → `buildTypes { debug { … } }`
-
-**Change:** Add `applicationIdSuffix ".debug"` and `versionNameSuffix " (debug)"` to the debug build type so that debug and release builds can coexist on the same device.
-
-**Acceptance criteria:**
-- [ ] Debug builds install under `eu.monniot.speed.debug` and show as "Speed (debug)" in the launcher.
-- [ ] Release builds are unaffected (`eu.monniot.speed`, "Speed").
-- [ ] Both variants can be installed simultaneously on the same device.
-
----
-
-### F8 — Auto-populate trip name from location
-**Status:** `done`  
-**Area:** `service/RaceRecordingService.kt` → `stopRecording()`, or `viewmodel/RaceViewModel.kt`
-
-**Problem:** New trips are named by the weekday at display time (e.g. "Monday ride"). A location-based name (e.g. start/end locality from reverse geocoding) would be more meaningful and make trips easier to identify.
-
-**Potential approach:** After session finalisation in `stopRecording()`, perform a reverse-geocode lookup for the first and/or last GPS coordinate of the session using the Android `Geocoder` API (no extra dependency), and set `Session.name` if the user hasn't provided one.
-
-**Acceptance criteria:**
-- [ ] Trips recorded with a GPS fix receive an auto-generated name from location data (e.g. city or locality name).
-- [ ] Trips where no GPS fix was obtained during the session fall back to the weekday label.
-- [ ] User-renamed trips are never overwritten by this logic.
-- [ ] The lookup runs off the main thread and does not block session finalisation.
-
----
-
-## Investigation / Research
-
-### R1 — Samsung: battery optimisation impact on GPS accuracy
-**Status:** `done`  
-**Area:** No code change required initially — investigation only.
-
-**Question:** On Samsung devices, setting the app's battery mode to "Optimised" (vs "Unrestricted") may throttle background sensor/location access when the screen is off. Determine:
-1. What Android API, if any, lets the app detect which battery mode it is under.
-2. Whether GPS update frequency is reduced in "Optimised" mode while the screen is off.
-3. Whether the app should prompt the user to switch to "Unrestricted" (and when/how).
-
-**Output:** A written note in this file (or a new `spec/` doc) summarising findings and a concrete recommendation. Only then should a code task be created.
-
-**Findings:**
-
-**1. Detecting the battery regime.** There is *no* public Android API that reports Samsung's three-tier label ("Unrestricted / Optimised / Restricted") verbatim — those are a Samsung UI skin over AOSP mechanisms. The closest standard signals (all already grantable on our minSdk 26 except where noted) are:
-- `PowerManager.isIgnoringBatteryOptimizations(packageName)` (API 23+) — whether the app sits on the OS battery-optimization allowlist. This is the best single proxy for "Unrestricted" (true) vs "Optimised" (false). Samsung's "Unrestricted" toggle flips this allowlist entry.
-- `ActivityManager.isBackgroundRestricted()` (API 28+) — true when the user has explicitly *Restricted* the app (the most aggressive Samsung tier).
-- `UsageStatsManager.getAppStandbyBucket()` (API 28+) — current App Standby bucket (`ACTIVE` … `RARE`, plus `RESTRICTED` on API 30+); a finer-grained proxy for how hard background work will be throttled.
-- `PowerManager.isPowerSaveMode()` — global battery saver, orthogonal to the per-app tier.
-
-So we can reliably distinguish "on the allowlist" from "not", and detect the hard-Restricted case, but we cannot read the exact Samsung wording.
-
-**2. Is GPS throttled while the screen is off?** It depends on the app state, not just the battery tier:
-- **During active recording** the app runs a foreground service typed `location` and holds a `PARTIAL_WAKE_LOCK` (see `RaceRecordingService.startRecording`). On stock Android, a foreground `location` service is exempt from Doze location throttling, so update frequency should hold up screen-off. The real-world risk is OEM-specific: Samsung "Optimised" mode is known (cf. dontkillmyapp.com) to kill or suspend foreground services and their wake locks screen-off more aggressively than AOSP, which would *stop* updates rather than merely slow them.
-- **During the F3 pre-warm window** (sensors started by auto-start but the user hasn't tapped Record yet) the wake lock is not held. This is the most exposed case: under "Optimised", the OS/OEM may suspend the service when the screen turns off, so the pre-warmed fix can be lost exactly when it was meant to help.
-
-In short: "Optimised" rarely *reduces the Hz* of an active foreground recording on stock Android, but on Samsung it can *suspend* recording or pre-warm entirely screen-off. The user-visible symptom is GPS gaps, not a lower steady rate.
-
-**3. Should we prompt, and how?** Yes, but conservatively:
-- Gate any prompt on `isIgnoringBatteryOptimizations() == false` (and optionally escalate copy when `isBackgroundRestricted()` is true). Never nag: show a single dismissible, "don't show again" educational card, ideally surfaced *contextually* — e.g. after a recording whose track shows GPS gaps — rather than on cold launch.
-- For the action, prefer the Play-policy-safe `Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` deep link (opens the allowlist list) over the direct `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog, which Google Play restricts to apps that are non-functional without the exemption. A long-ride GPS logger has a defensible claim to the direct request, but the settings deep link avoids policy review risk.
-- Samsung-specific "Unrestricted" / "Sleeping apps" screens are not reliably reachable by a stable public intent across One UI versions, so the prompt should explain in words ("set Speed to *Unrestricted* in battery settings") and fall back to the generic battery-optimization settings deep link.
-
-**Recommendation:** Create a follow-up code task to add a one-time, dismissible "allow unrestricted background battery" prompt gated on `PowerManager.isIgnoringBatteryOptimizations()` returning false, deep-linking to `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS`; do **not** attempt to read Samsung's exact tier (no API exists), and keep relying on the existing foreground-service + wake lock for the active-recording window.
+## Sequencing note
+Phase 1 first (quick hygiene). Phases 2 and 3 are the bulk of the value. Phase 4 should land
+*with or right after* Phase 2 so the new JVM suite is actually enforced. Deliberately not
+investing in more instrumented Compose/nav tests — they won't add confidence the JVM suite
+doesn't already give, and they cost emulator time.

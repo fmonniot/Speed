@@ -52,7 +52,7 @@ private const val GRAVITY = 9.81f
  */
 object SessionStatsComputer {
 
-    fun compute(points: List<DataPoint>): SessionStats {
+    fun compute(points: List<DataPoint>, filterStationary: Boolean = false): SessionStats {
         if (points.isEmpty()) {
             return SessionStats(
                 distanceM = 0f,
@@ -65,11 +65,20 @@ object SessionStatsComputer {
             )
         }
 
+        // When filterStationary is on, work only over moving points for distance and all
+        // aggregations. movingPercent still uses points.size as its denominator so it always
+        // reflects the true fraction of recorded time the rider was actually moving.
+        val workingPoints = if (filterStationary) {
+            points.filter { (it.derivedSpeedMs ?: it.gpsSpeedMs ?: 0f) > STATIONARY_THRESHOLD_MS }
+        } else {
+            points
+        }
+
         // --- distance ---
         var distanceM = 0f
-        for (i in 1 until points.size) {
-            val prev = points[i - 1]
-            val curr = points[i]
+        for (i in 1 until workingPoints.size) {
+            val prev = workingPoints[i - 1]
+            val curr = workingPoints[i]
             val lat1 = prev.latitude ?: continue
             val lon1 = prev.longitude ?: continue
             val lat2 = curr.latitude ?: continue
@@ -85,7 +94,7 @@ object SessionStatsComputer {
         var maxLeanDeg = 0f
         var hardestBrakeMs2: Float? = null   // most negative derivedAccelMs2
 
-        for (point in points) {
+        for (point in workingPoints) {
             val speed = point.derivedSpeedMs ?: point.gpsSpeedMs ?: 0f
 
             if (speed > maxSpeedMs) maxSpeedMs = speed
@@ -121,6 +130,8 @@ object SessionStatsComputer {
             0f
         }
 
+        // Always denominate over all stored points, even when filterStationary is on,
+        // so the stat reflects the true fraction of recorded time the rider was moving.
         val movingPercent = (100.0 * movingCount / points.size).roundToInt()
 
         return SessionStats(

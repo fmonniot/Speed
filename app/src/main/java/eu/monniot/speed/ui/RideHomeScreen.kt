@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.DirectionsBike
 import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.GpsFixed
 import androidx.compose.material.icons.rounded.Sensors
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Straighten
 import androidx.compose.material.icons.rounded.TwoWheeler
 import androidx.compose.material3.Icon
@@ -69,6 +70,7 @@ fun RideHomeScreen(
     thisWeekCount: Int,
     lifetimeDistanceM: Float,
     onRecord: () -> Unit,
+    onStop: () -> Unit,
     onOpenSummary: (String) -> Unit,   // pass the lastRide.sessionId
     onOpenTrips: () -> Unit,
     onOpenStats: () -> Unit,
@@ -153,6 +155,10 @@ fun RideHomeScreen(
                     icon = Icons.Rounded.BatteryFull,
                     label = serviceState.batteryPercent?.let { "$it%" } ?: "—%",
                 )
+
+                if (serviceState.isSensorsEnabled) {
+                    StopChip(onClick = onStop)
+                }
             }
 
             // R1: one-time battery-optimisation prompt (only when not allowlisted).
@@ -248,6 +254,35 @@ private fun SensorChip(
                 fontSize = 13.sp,
                 fontWeight = FontWeight(500),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// Action chip that stops sensors; styled with errorContainer to signal it's destructive.
+@Composable
+private fun StopChip(onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(SpeedDimens.radiusChip),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        modifier = Modifier.height(SpeedDimens.chipHeight),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 8.dp, end = 12.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Stop,
+                contentDescription = "Stop sensors",
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Stop",
+                fontSize = 13.sp,
+                fontWeight = FontWeight(500),
             )
         }
     }
@@ -473,6 +508,7 @@ private fun RideHomeScreenPreview() {
                 thisWeekCount = 4,
                 lifetimeDistanceM = 8_412_000f,
                 onRecord = {},
+                onStop = {},
                 onOpenSummary = {},
                 onOpenTrips = {},
                 onOpenStats = {},
@@ -501,6 +537,7 @@ private fun RideHomeScreenBatteryPromptPreview() {
                 thisWeekCount = 2,
                 lifetimeDistanceM = 120_000f,
                 onRecord = {},
+                onStop = {},
                 onOpenSummary = {},
                 onOpenTrips = {},
                 onOpenStats = {},
@@ -529,6 +566,7 @@ private fun RideHomeScreenNoRidePreview() {
                 thisWeekCount = 0,
                 lifetimeDistanceM = 0f,
                 onRecord = {},
+                onStop = {},
                 onOpenSummary = {},
                 onOpenTrips = {},
                 onOpenStats = {},

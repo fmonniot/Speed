@@ -45,6 +45,34 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    testOptions {
+        unitTests {
+            // Robolectric needs the merged Android resources (themes, drawables) to render
+            // real Compose screens on the JVM.
+            isIncludeAndroidResources = true
+        }
+        // Gradle Managed Device for the device-only instrumented tests (RaceRecordingServiceTest).
+        // ATD (Automated Test Device) is a headless, CI-optimised image; run in CI on a
+        // KVM-accelerated Linux runner via `./gradlew :app:pixel30atdDebugAndroidTest`.
+        managedDevices {
+            localDevices {
+                create("pixel30atd") {
+                    device = "Pixel 6"
+                    apiLevel = 30
+                    systemImageSource = "aosp-atd"
+                    // Pin the tested ABI to the host architecture. AGP 9.x's GMD setup otherwise
+                    // auto-resolves it and intermittently fails with MissingValueException on CI
+                    // (and the default flips to arm64-v8a in AGP 10). x86 on x86_64 CI runners;
+                    // arm64-v8a on Apple Silicon so local runs still work.
+                    testedAbi = if (System.getProperty("os.arch").lowercase() in listOf("aarch64", "arm64")) {
+                        "arm64-v8a"
+                    } else {
+                        "x86"
+                    }
+                }
+            }
+        }
+    }
 }
 
 kotlin {
@@ -89,6 +117,11 @@ dependencies {
     testImplementation(libs.mockito.core)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.robolectric)
+    // JVM (Robolectric) Compose UI + Room integration tests. ui-test-junit4 transitively
+    // provides androidx.test core/runner/ext-junit used by the Room tests too.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.androidx.compose.ui.test.manifest)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.rules)
