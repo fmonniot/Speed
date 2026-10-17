@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "eu.monniot.speed"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "eu.monniot.speed"

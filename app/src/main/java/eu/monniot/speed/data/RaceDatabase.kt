@@ -27,8 +27,8 @@ abstract class RaceDatabase : RoomDatabase() {
         private var INSTANCE: RaceDatabase? = null
 
         private val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL(
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
                     "ALTER TABLE sessions ADD COLUMN autoPauseEnabled INTEGER NOT NULL DEFAULT 0"
                 )
             }
@@ -42,7 +42,7 @@ abstract class RaceDatabase : RoomDatabase() {
                     "race_db"
                 )
                 .addMigrations(MIGRATION_6_7)
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
                 INSTANCE = instance
                 instance

@@ -16,7 +16,7 @@
 ./gradlew :app:lint
 ```
 
-- **minSdk** 26 · **targetSdk** 34 · **compileSdk** 36
+- **minSdk** 26 · **targetSdk** 34 · **compileSdk** 37
 - **JVM toolchain** 17 (set in `app/build.gradle.kts`)
 - No API keys or `local.properties` entries required. MapLibre is open-source and needs no key.
 - No signing config beyond the default debug keystore; `isMinifyEnabled = false` in release (no Proguard active).

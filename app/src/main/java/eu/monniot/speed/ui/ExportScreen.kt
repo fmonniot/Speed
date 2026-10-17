@@ -22,7 +22,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Route
@@ -122,7 +122,7 @@ fun ExportScreen(
             SpeedTopBar(
                 title = "Export data",
                 onBack = onBack,
-                trailingIcon = Icons.Rounded.HelpOutline,
+                trailingIcon = Icons.AutoMirrored.Rounded.HelpOutline,
                 onTrailingAction = { showHelp = true },
             )
         },

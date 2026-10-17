@@ -1,6 +1,7 @@
 package eu.monniot.speed.data
 
 import androidx.room.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -111,6 +112,7 @@ interface SegmentDao {
      * Uses [combine] to watch both tables, then re-runs the suspend aggregation
      * inside a [flow] builder so the suspend call is legal.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getSegmentListItems(): Flow<List<SegmentListItem>> =
         combine(
             getSegments(),
